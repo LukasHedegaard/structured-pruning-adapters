@@ -124,7 +124,7 @@ class SPLoPAdapter(nn.Module):  # Inherit __setattr__
         nn.init.uniform_(self.pos_weights, -1e-6, 1e-6)
 
     def __call__(self, weights):
-        return weights + torch.sum(
+        return weights.detach() + torch.sum(  # Detach gradient flow for weights
             torch.kron(self.pos_weights, self.prototypes()),
             dim=0,
         )
