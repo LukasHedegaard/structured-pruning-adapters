@@ -29,7 +29,18 @@ class SPLoPALinear(nn.Linear):
         dtype=None,
     ):
         factory_kwargs = {"device": device, "dtype": dtype}
-        nn.Linear.__init__(self, in_features, out_features, bias, **factory_kwargs)
+        nn.Module.__init__(self)
+        self.in_features = in_features
+        self.out_features = out_features
+        self.weight = nn.Parameter(
+            torch.empty((out_features, in_features), **factory_kwargs),
+            requires_grad=False,
+        )
+        if bias:
+            self.bias = nn.Parameter(torch.empty(out_features, **factory_kwargs))
+        else:
+            self.register_parameter("bias", None)
+
         self.adapter = SPLoPAdapter(
             (out_features, in_features), num_prototypes, block_shape
         )
@@ -99,7 +110,7 @@ class SPLoPALinear(nn.Linear):
 
 def copy_linear_params_(source: nn.Linear, target: nn.Linear, clone=True):
     maybe_clone = torch.clone if clone else lambda x: x
-    target.weight = nn.Parameter(maybe_clone(source.weight))
+    target.weight = nn.Parameter(maybe_clone(source.weight), requires_grad=False)
     if source.bias is not None:
         target.bias = nn.Parameter(maybe_clone(source.bias))
 
@@ -123,8 +134,9 @@ class SPLoPAdapter(nn.Module):  # Inherit __setattr__
         self.pos_weights = nn.Parameter(torch.Tensor(num_prototypes, n // p, m // q))
         nn.init.uniform_(self.pos_weights, -1e-6, 1e-6)
 
-    def __call__(self, weights):
-        return weights.detach() + torch.sum(  # Detach gradient flow for weights
+    def __call__(self, weights: torch.Tensor):
+        assert not weights.requires_grad
+        return weights + torch.sum(
             torch.kron(self.pos_weights, self.prototypes()),
             dim=0,
         )
