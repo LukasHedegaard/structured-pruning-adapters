@@ -9,6 +9,9 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 
 ## [Unreleased]
 
+### Changed
+- Switch to batch-wise Kronecker product implementation
+
 ## [0.1.0] - 2022-08-3
 ### Added
 - Structure Pruning Low-rank PHM Adapter (SPLoPA) and unit test

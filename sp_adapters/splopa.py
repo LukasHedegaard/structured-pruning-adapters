@@ -3,7 +3,7 @@ from typing import Iterator, Tuple
 
 import torch
 from torch import nn
-
+from .utils import bkron
 from .base import AdaptableModule
 
 
@@ -136,10 +136,7 @@ class SPLoPAdapter(nn.Module):  # Inherit __setattr__
 
     def __call__(self, weights: torch.Tensor):
         assert not weights.requires_grad
-        return weights + torch.sum(
-            torch.kron(self.pos_weights, self.prototypes()),
-            dim=0,
-        )
+        return weights + torch.sum(bkron(self.pos_weights, self.prototypes()), dim=0)
 
     def parameters(
         self, recurse: bool = True, mask: torch.Tensor = None
