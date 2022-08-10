@@ -2,6 +2,7 @@ import torch
 from torch import nn
 
 from sp_adapters import SPLoPA
+from sp_adapters.splopa import SPLoPALinear
 
 
 def test_splopa():
@@ -68,3 +69,40 @@ def test_splopa():
     )
 
     assert tot_masked_params == tot_params - num_prototypes * (n // p * m // q) * 0.5
+
+
+def test_splopa_named_parameters():
+    num_prototypes = 2
+    n, m = 4, 9
+    p, q = 2, 3
+
+    splin1 = SPLoPALinear(
+        m, n, num_prototypes=num_prototypes, block_shape=(p, q), bias=True
+    )
+    nps1 = {v[0] for v in splin1.named_parameters()}
+    assert "adapter.prototypes.rows" in nps1
+    assert "adapter.prototypes.cols" in nps1
+    assert "adapter.pos_weights" in nps1
+    assert "adapter_bias" in nps1
+
+    # Linear params exis, but do not show in named_parameters
+    assert "weight" not in nps1
+    assert "bias" not in nps1
+    assert isinstance(splin1.weight, nn.Parameter)
+    assert isinstance(splin1.bias, nn.Parameter)
+
+    splin2 = SPLoPALinear(
+        m, n, num_prototypes=num_prototypes, block_shape=(p, q), bias=False
+    )
+    nps2 = {v[0] for v in splin2.named_parameters()}
+    assert "adapter.prototypes.rows" in nps2
+    assert "adapter.prototypes.cols" in nps2
+    assert "adapter.pos_weights" in nps2
+    assert "adapter_bias" not in nps2  # <==
+    assert splin2.adapter_bias is None
+
+    # Linear params exis, but do not show in named_parameters
+    assert "weight" not in nps2
+    assert "bias" not in nps2
+    assert isinstance(splin2.weight, nn.Parameter)
+    assert splin2.bias is None

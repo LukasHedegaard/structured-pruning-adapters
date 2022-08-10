@@ -25,6 +25,7 @@ class SPLoPALinear(nn.Linear):
         bias: bool = True,
         num_prototypes: int = 64,
         block_shape: Tuple[int, int] = (32, 32),
+        prototype_rank: int = 1,
         device=None,
         dtype=None,
     ):
@@ -37,12 +38,15 @@ class SPLoPALinear(nn.Linear):
             requires_grad=False,
         )
         if bias:
-            self.bias = nn.Parameter(torch.empty(out_features, **factory_kwargs))
+            self.bias = nn.Parameter(
+                torch.empty(out_features, **factory_kwargs),
+                requires_grad=False,
+            )
         else:
             self.register_parameter("bias", None)
 
         self.adapter = SPLoPAdapter(
-            (out_features, in_features), num_prototypes, block_shape
+            (out_features, in_features), num_prototypes, block_shape, prototype_rank
         )
         if bias:
             self.adapter_bias = nn.Parameter(
@@ -112,7 +116,7 @@ def copy_linear_params_(source: nn.Linear, target: nn.Linear, clone=True):
     maybe_clone = torch.clone if clone else lambda x: x
     target.weight = nn.Parameter(maybe_clone(source.weight), requires_grad=False)
     if source.bias is not None:
-        target.bias = nn.Parameter(maybe_clone(source.bias))
+        target.bias = nn.Parameter(maybe_clone(source.bias), requires_grad=False)
 
 
 class SPLoPAdapter(nn.Module):  # Inherit __setattr__
@@ -121,6 +125,7 @@ class SPLoPAdapter(nn.Module):  # Inherit __setattr__
         weight_shape: Tuple[int, int],
         num_prototypes: int = 64,
         block_shape: Tuple[int, int] = (32, 32),
+        prototype_rank: int = 1,
     ):
         nn.Module.__init__(self)
 
@@ -128,9 +133,9 @@ class SPLoPAdapter(nn.Module):  # Inherit __setattr__
         p, q = block_shape
         assert (
             n % p == 0 and m % q == 0
-        ), "Weight shape should be devisible by block shape, but found {weight_shape} and {block_shape}"
+        ), f"Weight shape should be devisible by block shape, but found {weight_shape} and {block_shape}"
 
-        self.prototypes = shared_prototypes(num_prototypes, p, q)
+        self.prototypes = shared_prototypes(num_prototypes, p, q, prototype_rank)
         self.pos_weights = nn.Parameter(torch.Tensor(num_prototypes, n // p, m // q))
         nn.init.uniform_(self.pos_weights, -1e-6, 1e-6)
 
@@ -146,11 +151,11 @@ class SPLoPAdapter(nn.Module):  # Inherit __setattr__
 
 
 class LowRankMatrix(nn.Module):  # Inherit __setattr__
-    def __init__(self, n: int, p: int, q: int):
+    def __init__(self, n: int, p: int, q: int, rank: int = 1):
         nn.Module.__init__(self)
         self.n, self.p, self.q = n, p, q
-        self.cols = nn.Parameter(torch.Tensor(n, p, 1))
-        self.rows = nn.Parameter(torch.Tensor(n, 1, q))
+        self.cols = nn.Parameter(torch.Tensor(n, p, rank))
+        self.rows = nn.Parameter(torch.Tensor(n, rank, q))
         self.reset_parameters()
 
     def __call__(self):
@@ -168,11 +173,11 @@ class LowRankMatrix(nn.Module):  # Inherit __setattr__
 def _shared_prototypes_singleton():
     _prototypes = {}
 
-    def get_shared_prototype(n: int, p: int, q: int):
+    def get_shared_prototype(n: int, p: int, q: int, rank: int = 1):
         nonlocal _prototypes
-        key = (n, p, q)
+        key = (n, p, q, rank)
         if key not in _prototypes:
-            _prototypes[key] = LowRankMatrix(n, p, q)
+            _prototypes[key] = LowRankMatrix(n, p, q, rank)
 
         return _prototypes[key]
 
