@@ -2,12 +2,7 @@ import sys
 
 from setuptools import find_packages, setup
 
-try:
-    from sp_adapters import __about__ as about
-except ImportError:
-    # alternative https://stackoverflow.com/a/67692/4521646
-    sys.path.append("sp_adapters")
-    import __about__ as about  # noqa: F401
+import __about__ as about  # noqa: F401
 
 
 def long_description():
