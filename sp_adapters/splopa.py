@@ -1,20 +1,47 @@
-import math
+import logging
+from copy import deepcopy
 from typing import Iterator, Tuple
 
 import torch
 from torch import nn
-from .utils import bkron
+
 from .base import AdaptableModule
+from .lora import LowRankMatrix
+from .utils import bkron, copy_linear_params_
+
+logger = logging.getLogger(__name__)
 
 
 def SPLoPA(
     module: AdaptableModule,
     num_prototypes: int = 64,
     block_shape: Tuple[int, int] = (32, 32),
+    prototype_rank: int = 1,
+    inplace=False,
+    _module_name=None,
 ):
-    return {nn.Linear: SPLoPALinear,}[
-        type(module)
-    ].from_module(module, num_prototypes, block_shape)
+    assert isinstance(module, nn.Module), "Only a `torch.nn.Module` can be adapted"
+    if not inplace:
+        module = deepcopy(module)
+
+    if isinstance(module, nn.Linear):
+        return SPLoPALinear.from_module(
+            module, num_prototypes, block_shape, prototype_rank
+        )
+
+    # Recursively update children
+    for n, c in module.named_children():
+        full_name = ".".join(filter(None, [_module_name, n]))
+        try:
+            setattr(
+                module,
+                n,
+                SPLoPA(c, num_prototypes, block_shape, prototype_rank, True, full_name),
+            )
+        except Exception as e:
+            logger.warning(f"Unable to convert '{full_name}' ({c}): {e}")
+
+    return module
 
 
 class SPLoPALinear(nn.Linear):
@@ -26,6 +53,7 @@ class SPLoPALinear(nn.Linear):
         num_prototypes: int = 64,
         block_shape: Tuple[int, int] = (32, 32),
         prototype_rank: int = 1,
+        shared_prototypes: bool = True,
         device=None,
         dtype=None,
     ):
@@ -46,13 +74,17 @@ class SPLoPALinear(nn.Linear):
             self.register_parameter("bias", None)
 
         self.adapter = SPLoPAdapter(
-            (out_features, in_features), num_prototypes, block_shape, prototype_rank
+            (out_features, in_features),
+            num_prototypes,
+            block_shape,
+            prototype_rank,
+            shared_prototypes,
         )
         if bias:
             self.adapter_bias = nn.Parameter(
                 torch.empty(out_features, **factory_kwargs)
             )
-            nn.init.uniform_(self.adapter_bias, -1e-6, 1e-6)
+            nn.init.uniform_(self.adapter_bias, -1e-4, 1e-4)
         else:
             self.register_parameter("adapter_bias", None)
         self.reset_parameters()
@@ -70,7 +102,7 @@ class SPLoPALinear(nn.Linear):
         if self.adapter_bias is not None:
             return self.bias + self.adapter_bias
         else:
-            return self.adapter_bias
+            return self.bias
 
     def configure_parameter_read(
         self, adapter_weights_only=True, mask: torch.BoolTensor = None
@@ -93,6 +125,7 @@ class SPLoPALinear(nn.Linear):
         module: nn.Linear,
         num_prototypes: int = 64,
         block_shape: Tuple[int, int] = (32, 32),
+        prototype_rank: int = 1,
     ) -> "SPLoPALinear":
         instance = SPLoPALinear(
             module.in_features,
@@ -100,23 +133,17 @@ class SPLoPALinear(nn.Linear):
             module.bias is not None,
             num_prototypes,
             block_shape,
+            prototype_rank,
         )
         copy_linear_params_(module, instance)
         return instance
 
     def to_module(self) -> nn.Linear:
         instance = nn.Linear(self.in_features, self.out_features, self.bias is not None)
-        instance.weight = torch.clone(self.adapt(self.weight))
+        instance.weight = torch.nn.Parameter(self.adapted_weight)
         if self.bias is not None:
-            instance.bias = self.bias
+            instance.bias = torch.nn.Parameter(self.adapted_bias)
         return instance
-
-
-def copy_linear_params_(source: nn.Linear, target: nn.Linear, clone=True):
-    maybe_clone = torch.clone if clone else lambda x: x
-    target.weight = nn.Parameter(maybe_clone(source.weight), requires_grad=False)
-    if source.bias is not None:
-        target.bias = nn.Parameter(maybe_clone(source.bias), requires_grad=False)
 
 
 class SPLoPAdapter(nn.Module):  # Inherit __setattr__
@@ -126,6 +153,7 @@ class SPLoPAdapter(nn.Module):  # Inherit __setattr__
         num_prototypes: int = 64,
         block_shape: Tuple[int, int] = (32, 32),
         prototype_rank: int = 1,
+        shared=True,
     ):
         nn.Module.__init__(self)
 
@@ -135,39 +163,14 @@ class SPLoPAdapter(nn.Module):  # Inherit __setattr__
             n % p == 0 and m % q == 0
         ), f"Weight shape should be devisible by block shape, but found {weight_shape} and {block_shape}"
 
-        self.prototypes = shared_prototypes(num_prototypes, p, q, prototype_rank)
+        Prototypes = shared_prototypes if shared else LowRankMatrix
+        self.prototypes = Prototypes(num_prototypes, p, q, prototype_rank)
         self.pos_weights = nn.Parameter(torch.Tensor(num_prototypes, n // p, m // q))
-        nn.init.uniform_(self.pos_weights, -1e-6, 1e-6)
+        nn.init.uniform_(self.pos_weights, -1e-4, 1e-4)
 
     def __call__(self, weights: torch.Tensor):
         assert not weights.requires_grad
         return weights + torch.sum(bkron(self.pos_weights, self.prototypes()), dim=0)
-
-    def parameters(
-        self, recurse: bool = True, mask: torch.Tensor = None
-    ) -> Iterator[nn.Parameter]:
-        it = super().parameters(recurse)
-        return it
-
-
-class LowRankMatrix(nn.Module):  # Inherit __setattr__
-    def __init__(self, n: int, p: int, q: int, rank: int = 1):
-        nn.Module.__init__(self)
-        self.n, self.p, self.q = n, p, q
-        self.cols = nn.Parameter(torch.Tensor(n, p, rank))
-        self.rows = nn.Parameter(torch.Tensor(n, rank, q))
-        self.reset_parameters()
-
-    def __call__(self):
-        return self.cols @ self.rows
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.n}, {self.p}, {self.q})"
-
-    def reset_parameters(self) -> None:
-        # Init as in torch.nn.Linear.reset_parameters
-        nn.init.kaiming_uniform_(self.cols, a=math.sqrt(5))
-        nn.init.kaiming_uniform_(self.rows, a=math.sqrt(5))
 
 
 def _shared_prototypes_singleton():

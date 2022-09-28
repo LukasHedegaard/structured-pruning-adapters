@@ -30,7 +30,7 @@ def test_splopa():
     # Forwards are approx equal since adapters were initialized with near-zero values
     lin_out = lin.forward(x)
     splin_out = splin.forward(x)
-    assert torch.allclose(lin_out, splin_out, atol=1e-5)
+    assert torch.allclose(lin_out, splin_out, atol=1e-3)
 
     # Train a bit
     mse = nn.MSELoss()
@@ -70,6 +70,11 @@ def test_splopa():
 
     assert tot_masked_params == tot_params - num_prototypes * (n // p * m // q) * 0.5
 
+    # Export to lin
+    lin2 = splin.to_module()
+    assert torch.equal(lin2.weight, splin.adapted_weight)
+    assert torch.equal(lin2.bias, splin.adapted_bias)
+
 
 def test_splopa_named_parameters():
     num_prototypes = 2
@@ -106,3 +111,45 @@ def test_splopa_named_parameters():
     assert "bias" not in nps2
     assert isinstance(splin2.weight, nn.Parameter)
     assert splin2.bias is None
+
+
+def test_conversion():
+    class Net(torch.nn.Module):
+        def __init__(self):
+            super(Net, self).__init__()
+            self.seq = torch.nn.Sequential(
+                torch.nn.Linear(28 * 28, 512), torch.nn.ReLU()
+            )
+            self.fc2 = torch.nn.Linear(512, 10)
+
+        def forward(self, x):
+            x = torch.flatten(x, 1)
+            x = self.seq(x)
+            x = self.fc2(x)
+            output = torch.nn.functional.log_softmax(x, dim=1)
+            return output
+
+    net = Net()
+
+    # Convert
+    anet = SPLoPA(net, block_shape=(16, 16))
+
+    assert isinstance(net.seq[0], torch.nn.Linear)
+    assert isinstance(anet.seq[0], SPLoPALinear)  # Different module
+    assert isinstance(net.fc2, torch.nn.Linear)
+
+    # Not converted since `out_featues=10` is incompatible with `block_shape=(16,16)`
+    assert isinstance(anet.fc2, torch.nn.Linear)
+
+    # Same weight
+    assert torch.equal(net.seq[0].weight, anet.seq[0].weight)
+    assert torch.equal(net.seq[0].bias, anet.seq[0].bias)
+
+    # Adapted weight close but not equal
+    assert torch.allclose(net.seq[0].weight, anet.seq[0].adapted_weight, atol=1e-4)
+    assert not torch.equal(net.seq[0].weight, anet.seq[0].adapted_weight)
+
+    assert torch.allclose(net.seq[0].bias, anet.seq[0].adapted_bias, atol=1e-4)
+    assert not torch.equal(net.seq[0].bias, anet.seq[0].adapted_bias)
+
+    # Conversion only handles
