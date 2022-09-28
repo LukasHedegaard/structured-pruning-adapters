@@ -9,11 +9,17 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 
 ## [Unreleased]
 
+
+## [0.2.0] - 2022-09-28
+
 ### Added
+- Structured Prunint Low-rank Adapter (SPLoRA)
 - SPLoPA prototype rank control
+- Demo notebook
 
 ### Changed
 - Switch to batch-wise Kronecker product implementation
+
 
 ## [0.1.0] - 2022-08-3
 ### Added
