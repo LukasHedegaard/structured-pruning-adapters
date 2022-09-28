@@ -1,5 +1,3 @@
-import logging
-from copy import deepcopy
 from typing import Iterator, Tuple
 
 import torch
@@ -7,9 +5,7 @@ from torch import nn
 
 from .base import AdaptableModule
 from .lora import LowRankMatrix
-from .utils import bkron, copy_linear_params_
-
-logger = logging.getLogger(__name__)
+from .utils import bkron, copy_linear_params_, recursive_replace
 
 
 def SPLoPA(
@@ -18,30 +14,17 @@ def SPLoPA(
     block_shape: Tuple[int, int] = (32, 32),
     prototype_rank: int = 1,
     inplace=False,
-    _module_name=None,
 ):
-    assert isinstance(module, nn.Module), "Only a `torch.nn.Module` can be adapted"
-    if not inplace:
-        module = deepcopy(module)
-
-    if isinstance(module, nn.Linear):
-        return SPLoPALinear.from_module(
-            module, num_prototypes, block_shape, prototype_rank
-        )
-
-    # Recursively update children
-    for n, c in module.named_children():
-        full_name = ".".join(filter(None, [_module_name, n]))
-        try:
-            setattr(
-                module,
-                n,
-                SPLoPA(c, num_prototypes, block_shape, prototype_rank, True, full_name),
-            )
-        except Exception as e:
-            logger.warning(f"Unable to convert '{full_name}' ({c}): {e}")
-
-    return module
+    return recursive_replace(
+        module,
+        nn.Linear,
+        SPLoPALinear.from_module,
+        inplace,
+        None,
+        num_prototypes=num_prototypes,
+        block_shape=block_shape,
+        prototype_rank=prototype_rank,
+    )
 
 
 class SPLoPALinear(nn.Linear):
@@ -99,10 +82,10 @@ class SPLoPALinear(nn.Linear):
 
     @property
     def adapted_bias(self) -> nn.Parameter:
+        result = None
         if self.adapter_bias is not None:
-            return self.bias + self.adapter_bias
-        else:
-            return self.bias
+            result = self.bias + self.adapter_bias
+        return result
 
     def configure_parameter_read(
         self, adapter_weights_only=True, mask: torch.BoolTensor = None
