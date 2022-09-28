@@ -1,5 +1,3 @@
-import sys
-
 from setuptools import find_packages, setup
 
 import __about__ as about  # noqa: F401
