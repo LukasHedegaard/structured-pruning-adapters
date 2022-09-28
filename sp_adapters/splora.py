@@ -5,16 +5,13 @@ from torch import nn
 
 from .base import AdaptableModule
 from .lora import LowRankMatrix
-from .utils import copy_linear_params_
+from .utils import copy_linear_params_, recursive_replace
 
 
-def SPLoRA(
-    module: AdaptableModule,
-    rank: int = 16,
-):
-    return {nn.Linear: SPLoRALinear,}[
-        type(module)
-    ].from_module(module, rank)
+def SPLoRA(module: AdaptableModule, rank: int = 16, inplace=False):
+    return recursive_replace(
+        module, nn.Linear, SPLoRALinear.from_module, inplace, None, rank=rank
+    )
 
 
 class SPLoRALinear(nn.Linear):
@@ -61,27 +58,35 @@ class SPLoRALinear(nn.Linear):
 
     @property
     def adapted_weight(self) -> nn.Parameter:
-        assert not self.weights.requires_grad
-        return self.adapter() + self.weight
+        assert not self.weight.requires_grad
+        return self.adapter().squeeze(0) + self.weight
 
     @property
     def adapted_bias(self) -> nn.Parameter:
+        result = None
         if self.adapter_bias is not None:
-            return self.bias + self.adapter_bias
-        else:
-            return self.bias
+            result = self.bias + self.adapter_bias
+        return result
 
     def configure_parameter_read(
-        self, adapter_weights_only=True, mask: torch.BoolTensor = None
+        self,
+        adapter_weights_only=True,
+        in_features_mask: torch.BoolTensor = None,
+        out_features_mask: torch.BoolTensor = None,
     ):
         self._read_adapter_weights_only = adapter_weights_only
-        self._read_mask = mask
+        self._in_features_mask = in_features_mask
+        self._out_features_mask = out_features_mask
 
     def named_parameters(
         self, prefix: str = "", recurse: bool = True
     ) -> Iterator[Tuple[str, nn.Parameter]]:
         for name, param in super().named_parameters(prefix, recurse):
             if not self._read_adapter_weights_only or "adapter" in name:
+                if name == "adapter.rows" and self._in_features_mask is not None:
+                    param = param[:, :, self._in_features_mask].flatten()
+                if name == "adapter.cols" and self._out_features_mask is not None:
+                    param = param[:, self._out_features_mask, :].flatten()
                 yield (name, param)
 
     @classmethod
