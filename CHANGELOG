@@ -9,6 +9,9 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+- `init_range` parameter.
+
 
 ## [0.2.0] - 2022-09-28
 

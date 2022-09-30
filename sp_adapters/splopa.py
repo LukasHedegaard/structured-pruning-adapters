@@ -7,12 +7,16 @@ from .base import AdaptableModule
 from .lora import LowRankMatrix
 from .utils import bkron, copy_linear_params_, recursive_replace
 
+_DEFAULT_INIT_RANGE = 1e-4
+
 
 def SPLoPA(
     module: AdaptableModule,
     num_prototypes: int = 64,
     block_shape: Tuple[int, int] = (32, 32),
     prototype_rank: int = 1,
+    shared_prototypes: bool = True,
+    init_range: float = _DEFAULT_INIT_RANGE,
     inplace=False,
 ):
     return recursive_replace(
@@ -24,6 +28,8 @@ def SPLoPA(
         num_prototypes=num_prototypes,
         block_shape=block_shape,
         prototype_rank=prototype_rank,
+        shared_prototypes=shared_prototypes,
+        init_range=init_range,
     )
 
 
@@ -37,6 +43,7 @@ class SPLoPALinear(nn.Linear):
         block_shape: Tuple[int, int] = (32, 32),
         prototype_rank: int = 1,
         shared_prototypes: bool = True,
+        init_range: float = _DEFAULT_INIT_RANGE,
         device=None,
         dtype=None,
     ):
@@ -62,12 +69,13 @@ class SPLoPALinear(nn.Linear):
             block_shape,
             prototype_rank,
             shared_prototypes,
+            init_range,
         )
         if bias:
             self.adapter_bias = nn.Parameter(
                 torch.empty(out_features, **factory_kwargs)
             )
-            nn.init.uniform_(self.adapter_bias, -1e-4, 1e-4)
+            nn.init.uniform_(self.adapter_bias, -init_range, init_range)
         else:
             self.register_parameter("adapter_bias", None)
         self.reset_parameters()
@@ -109,14 +117,18 @@ class SPLoPALinear(nn.Linear):
         num_prototypes: int = 64,
         block_shape: Tuple[int, int] = (32, 32),
         prototype_rank: int = 1,
+        shared_prototypes: bool = True,
+        init_range: float = _DEFAULT_INIT_RANGE,
     ) -> "SPLoPALinear":
         instance = SPLoPALinear(
-            module.in_features,
-            module.out_features,
-            module.bias is not None,
-            num_prototypes,
-            block_shape,
-            prototype_rank,
+            in_features=module.in_features,
+            out_features=module.out_features,
+            bias=module.bias is not None,
+            num_prototypes=num_prototypes,
+            block_shape=block_shape,
+            prototype_rank=prototype_rank,
+            shared_prototypes=shared_prototypes,
+            init_range=init_range,
         )
         copy_linear_params_(module, instance)
         return instance
@@ -137,6 +149,7 @@ class SPLoPAdapter(nn.Module):  # Inherit __setattr__
         block_shape: Tuple[int, int] = (32, 32),
         prototype_rank: int = 1,
         shared=True,
+        init_range: float = _DEFAULT_INIT_RANGE,
     ):
         nn.Module.__init__(self)
 
@@ -149,7 +162,7 @@ class SPLoPAdapter(nn.Module):  # Inherit __setattr__
         Prototypes = shared_prototypes if shared else LowRankMatrix
         self.prototypes = Prototypes(num_prototypes, p, q, prototype_rank)
         self.pos_weights = nn.Parameter(torch.Tensor(num_prototypes, n // p, m // q))
-        nn.init.uniform_(self.pos_weights, -1e-4, 1e-4)
+        nn.init.uniform_(self.pos_weights, -init_range, init_range)
 
     def __call__(self, weights: torch.Tensor):
         assert not weights.requires_grad

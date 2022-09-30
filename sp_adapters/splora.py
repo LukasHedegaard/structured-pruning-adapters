@@ -7,10 +7,23 @@ from .base import AdaptableModule
 from .lora import LowRankMatrix
 from .utils import copy_linear_params_, recursive_replace
 
+_DEFAULT_INIT_RANGE = 1e-4
 
-def SPLoRA(module: AdaptableModule, rank: int = 16, inplace=False):
+
+def SPLoRA(
+    module: AdaptableModule,
+    rank: int = 16,
+    init_range: float = _DEFAULT_INIT_RANGE,
+    inplace=False,
+):
     return recursive_replace(
-        module, nn.Linear, SPLoRALinear.from_module, inplace, None, rank=rank
+        module,
+        nn.Linear,
+        SPLoRALinear.from_module,
+        inplace,
+        None,
+        rank=rank,
+        init_range=init_range,
     )
 
 
@@ -21,6 +34,7 @@ class SPLoRALinear(nn.Linear):
         out_features: int,
         bias: bool = True,
         rank: int = 16,
+        init_range: float = _DEFAULT_INIT_RANGE,
         device=None,
         dtype=None,
     ):
@@ -47,7 +61,7 @@ class SPLoRALinear(nn.Linear):
             self.adapter_bias = nn.Parameter(
                 torch.empty(out_features, **factory_kwargs)
             )
-            nn.init.uniform_(self.adapter_bias, -1e-4, 1e-4)
+            nn.init.uniform_(self.adapter_bias, -init_range, init_range)
         else:
             self.register_parameter("adapter_bias", None)
         self.reset_parameters()
@@ -94,12 +108,14 @@ class SPLoRALinear(nn.Linear):
         cls,
         module: nn.Linear,
         rank: int = 16,
+        init_range: float = _DEFAULT_INIT_RANGE,
     ) -> "SPLoRALinear":
         instance = SPLoRALinear(
             module.in_features,
             module.out_features,
             module.bias is not None,
-            rank,
+            rank=rank,
+            init_range=init_range,
         )
         copy_linear_params_(module, instance)
         return instance

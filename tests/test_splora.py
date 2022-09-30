@@ -2,7 +2,9 @@ import torch
 from torch import nn
 
 from sp_adapters import SPLoRA
-from sp_adapters.splora import SPLoRALinear
+from sp_adapters.splora import _DEFAULT_INIT_RANGE, SPLoRALinear
+
+EPS = 1e-9
 
 
 def test_splora():
@@ -36,6 +38,14 @@ def test_splora():
     lin_out = lin.forward(x)
     splin_out = splin.forward(x)
     assert torch.allclose(lin_out, splin_out, atol=1e-3)
+
+    # splin2 = SPLoRA(
+    #     lin,
+    #     rank=rank,
+    #     init_range=1e-6,
+    # )
+    # splin2_out = splin2.forward(x)
+    # assert torch.allclose(lin_out, splin2_out, atol=1e-6 + EPS)
 
     # Train a bit
     mse = nn.MSELoss()
@@ -138,10 +148,14 @@ def test_conversion():
     assert torch.equal(net.seq[0].bias, anet.seq[0].bias)
 
     # Adapted weight close but not equal
-    assert torch.allclose(net.seq[0].weight, anet.seq[0].adapted_weight, atol=1e-4)
+    assert torch.allclose(
+        net.seq[0].weight, anet.seq[0].adapted_weight, atol=_DEFAULT_INIT_RANGE + EPS
+    )
     assert not torch.equal(net.seq[0].weight, anet.seq[0].adapted_weight)
 
-    assert torch.allclose(net.seq[0].bias, anet.seq[0].adapted_bias, atol=1e-4)
+    assert torch.allclose(
+        net.seq[0].bias, anet.seq[0].adapted_bias, atol=_DEFAULT_INIT_RANGE + EPS
+    )
     assert not torch.equal(net.seq[0].bias, anet.seq[0].adapted_bias)
 
     # Conversion only handles

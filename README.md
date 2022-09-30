@@ -61,6 +61,7 @@ Use in conjunction with any Structured Pruning technique.
     ```
 2. Replace Linear and Conv layers with an SP Adapter
     ```python3
+    from torch.nn import Linear
     from sp_adapter import SPLoRA
 
     reg_lin = Linear(256, 512, bias=True)
@@ -85,6 +86,9 @@ Use in conjunction with any Structured Pruning technique.
     spa_lin.named_parameters()
     spa_lin.state_dict()
     ```
+
+### Demo
+See also [notebooks/demo.ipynb](notebooks/demo.ipynb) for a hands-on demo.
 
 ### Structured Pruning Low-Rank Adapter (SPLoRA) for _Channel Pruning_ 
 ```python3
