@@ -34,16 +34,34 @@ def test_splopa():
     splin_out = splin.forward(x)
     assert torch.allclose(lin_out, splin_out, atol=_DEFAULT_INIT_RANGE * 10)
 
-    # # The tollerance is determined by the initialisation
+    # The tollerance is determined by the initialisation
     splin2 = SPLoPA(
         lin,
         num_prototypes=num_prototypes,
         block_shape=(p, q),
         init_range=1e-6,
         shared_prototypes=False,
+        shared_pos_weights=True,
     )
     splin2_out = splin2.forward(x)
     assert torch.allclose(lin_out, splin2_out, atol=1e-6 * 10)
+
+    # Prototype weight sharing also works
+    splin3 = SPLoPA(
+        lin,
+        num_prototypes=num_prototypes,
+        block_shape=(p, q),
+        init_range=1e-6,
+        shared_prototypes=False,
+        shared_pos_weights=True,
+    )
+    assert not torch.equal(
+        splin3.adapter.prototypes.cols, splin2.adapter.prototypes.cols
+    )
+    assert not torch.equal(
+        splin3.adapter.prototypes.rows, splin2.adapter.prototypes.rows
+    )
+    assert torch.equal(splin3.adapter.pos_weights, splin2.adapter.pos_weights)
 
     # Train a bit
     mse = nn.MSELoss()

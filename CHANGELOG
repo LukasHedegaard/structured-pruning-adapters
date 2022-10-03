@@ -10,7 +10,8 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 ## [Unreleased]
 
 ### Added
-- `init_range` parameter.
+- `init_range` parameter to both SPLoRA and SPLoPA
+- `shared_pos_weights_option` to SPLoPA
 
 
 ## [0.2.0] - 2022-09-28

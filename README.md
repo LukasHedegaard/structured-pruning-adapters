@@ -55,11 +55,11 @@ When a single base-model is deployed with many specialised models, these structu
 
 ## How to use this library
 Use in conjunction with any Structured Pruning technique. 
-1. Just install
+1. Install the library:
     ```bash
     pip install structured-pruning-adapters
     ```
-2. Replace Linear and Conv layers with an SP Adapter
+2. Replace Linear and Conv layers with an SP Adapter:
     ```python3
     from torch.nn import Linear
     from sp_adapter import SPLoRA

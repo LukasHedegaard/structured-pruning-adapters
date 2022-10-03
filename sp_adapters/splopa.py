@@ -16,6 +16,7 @@ def SPLoPA(
     block_shape: Tuple[int, int] = (32, 32),
     prototype_rank: int = 1,
     shared_prototypes: bool = True,
+    shared_pos_weights: bool = False,
     init_range: float = _DEFAULT_INIT_RANGE,
     inplace=False,
 ):
@@ -29,6 +30,7 @@ def SPLoPA(
         block_shape=block_shape,
         prototype_rank=prototype_rank,
         shared_prototypes=shared_prototypes,
+        shared_pos_weights=shared_pos_weights,
         init_range=init_range,
     )
 
@@ -43,6 +45,7 @@ class SPLoPALinear(nn.Linear):
         block_shape: Tuple[int, int] = (32, 32),
         prototype_rank: int = 1,
         shared_prototypes: bool = True,
+        shared_pos_weights: bool = False,
         init_range: float = _DEFAULT_INIT_RANGE,
         device=None,
         dtype=None,
@@ -69,6 +72,7 @@ class SPLoPALinear(nn.Linear):
             block_shape,
             prototype_rank,
             shared_prototypes,
+            shared_pos_weights,
             init_range,
         )
         if bias:
@@ -118,6 +122,7 @@ class SPLoPALinear(nn.Linear):
         block_shape: Tuple[int, int] = (32, 32),
         prototype_rank: int = 1,
         shared_prototypes: bool = True,
+        shared_pos_weights: bool = False,
         init_range: float = _DEFAULT_INIT_RANGE,
     ) -> "SPLoPALinear":
         instance = SPLoPALinear(
@@ -128,6 +133,7 @@ class SPLoPALinear(nn.Linear):
             block_shape=block_shape,
             prototype_rank=prototype_rank,
             shared_prototypes=shared_prototypes,
+            shared_pos_weights=shared_pos_weights,
             init_range=init_range,
         )
         copy_linear_params_(module, instance)
@@ -148,7 +154,8 @@ class SPLoPAdapter(nn.Module):  # Inherit __setattr__
         num_prototypes: int = 64,
         block_shape: Tuple[int, int] = (32, 32),
         prototype_rank: int = 1,
-        shared=True,
+        shared_prototypes: bool = True,
+        shared_pos_weights: bool = False,
         init_range: float = _DEFAULT_INIT_RANGE,
     ):
         nn.Module.__init__(self)
@@ -159,10 +166,20 @@ class SPLoPAdapter(nn.Module):  # Inherit __setattr__
             n % p == 0 and m % q == 0
         ), f"Weight shape should be devisible by block shape, but found {weight_shape} and {block_shape}"
 
-        Prototypes = shared_prototypes if shared else LowRankMatrix
-        self.prototypes = Prototypes(num_prototypes, p, q, prototype_rank)
-        self.pos_weights = nn.Parameter(torch.Tensor(num_prototypes, n // p, m // q))
-        nn.init.uniform_(self.pos_weights, -init_range, init_range)
+        if shared_prototypes:
+            self.prototypes = SharedPrototypes(num_prototypes, p, q, prototype_rank)
+        else:
+            self.prototypes = LowRankMatrix(num_prototypes, p, q, prototype_rank)
+
+        if shared_pos_weights:
+            self.pos_weights = SharedPosWeights(
+                num_prototypes, n // p, m // q, init_range
+            )
+        else:
+            self.pos_weights = nn.Parameter(
+                torch.Tensor(num_prototypes, n // p, m // q)
+            )
+            nn.init.uniform_(self.pos_weights, -init_range, init_range)
 
     def __call__(self, weights: torch.Tensor):
         assert not weights.requires_grad
@@ -172,7 +189,7 @@ class SPLoPAdapter(nn.Module):  # Inherit __setattr__
 def _shared_prototypes_singleton():
     _prototypes = {}
 
-    def get_shared_prototype(n: int, p: int, q: int, rank: int = 1):
+    def get_shared_prototype(n: int, p: int, q: int, rank: int = 1) -> LowRankMatrix:
         nonlocal _prototypes
         key = (n, p, q, rank)
         if key not in _prototypes:
@@ -183,4 +200,22 @@ def _shared_prototypes_singleton():
     return get_shared_prototype
 
 
-shared_prototypes = _shared_prototypes_singleton()
+def _shared_pos_weights_singleton():
+    _pos_weights = {}
+
+    def get_shared_pos_weights(
+        n: int, p: int, q: int, init_range: float
+    ) -> nn.Parameter:
+        nonlocal _pos_weights
+        key = (n, p, q)
+        if key not in _pos_weights:
+            _pos_weights[key] = nn.Parameter(torch.Tensor(n, p, q))
+            nn.init.uniform_(_pos_weights[key], -init_range, init_range)
+
+        return _pos_weights[key]
+
+    return get_shared_pos_weights
+
+
+SharedPrototypes = _shared_prototypes_singleton()
+SharedPosWeights = _shared_pos_weights_singleton()
