@@ -9,13 +9,13 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.3.0] - 2022-10-03
 ### Added
 - `init_range` parameter to both SPLoRA and SPLoPA
 - `shared_pos_weights_option` to SPLoPA
 
 
 ## [0.2.0] - 2022-09-28
-
 ### Added
 - Structured Prunint Low-rank Adapter (SPLoRA)
 - SPLoPA prototype rank control
