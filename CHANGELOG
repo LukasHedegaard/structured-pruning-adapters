@@ -9,6 +9,7 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.4.0] - 2022-10-18
 ### Added
 - `SPLoRAConv1d`
 - `SPLoRAConv2d`
