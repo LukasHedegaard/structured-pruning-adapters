@@ -9,6 +9,11 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+- `SPLoRAConv1d`
+- `SPLoRAConv2d`
+- `SPLoRAConv3d`
+
 ## [0.3.0] - 2022-10-03
 ### Added
 - `init_range` parameter to both SPLoRA and SPLoPA
