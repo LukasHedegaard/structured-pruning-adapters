@@ -1,4 +1,5 @@
 import math
+from typing import Union
 
 import torch
 from torch import nn
@@ -10,10 +11,14 @@ class LowRankMatrix(nn.Module):  # Inherit __setattr__
         num_filters: int,
         in_features: int,
         out_features: int,
-        rank: int = 1,
+        rank: Union[int, float] = 1,  # rank (int) or fraction of output_channels
         init_near_zero=False,
     ):
         nn.Module.__init__(self)
+        if rank < 1:
+            rank = round(out_features * rank)
+        else:
+            rank = round(rank)
         self.rank = rank
         self.num_filters = num_filters
         self.in_features = in_features

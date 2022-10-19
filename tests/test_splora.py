@@ -203,7 +203,11 @@ def test_conversion():
     net = Net()
 
     # Convert
-    anet = SPLoRA(net, rank=8)
+    anet = SPLoRA(net, rank=1 / 8)
+
+    # Fractional rank is based on output_channels
+    assert anet.seq[0].adapter.rank == round(512 / 8)
+    assert anet.fc2.adapter.rank == round(10 / 8)
 
     assert isinstance(net.seq[0], torch.nn.Linear)
     assert isinstance(anet.seq[0], SPLoRALinear)  # Different module

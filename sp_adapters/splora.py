@@ -8,6 +8,7 @@ from .base import AdaptableModule
 from .lora import LowRankMatrix
 from .utils import copy_linear_params_, recursive_replace
 
+_DEFAULT_RANK = 16
 _DEFAULT_INIT_RANGE = 1e-4
 
 
@@ -40,7 +41,8 @@ class SPLoRALinear(nn.Linear):
         in_features: int,
         out_features: int,
         bias: bool = True,
-        rank: int = 16,
+        # rank (int) or fraction of output_channels
+        rank: Union[int, float] = _DEFAULT_RANK,
         init_range: float = _DEFAULT_INIT_RANGE,
         device=None,
         dtype=None,
@@ -108,7 +110,8 @@ class SPLoRALinear(nn.Linear):
     def from_module(
         cls,
         module: nn.Linear,
-        rank: int = 16,
+        # rank (int) or fraction of output_channels
+        rank: Union[int, float] = _DEFAULT_RANK,
         init_range: float = _DEFAULT_INIT_RANGE,
     ) -> "SPLoRALinear":
         instance = SPLoRALinear(
@@ -136,7 +139,8 @@ class _SPLoRAConvNd:
         in_channels: int,
         out_channels: int,
         bias: bool = True,
-        rank: int = 16,
+        # rank (int) or fraction of output_channels
+        rank: Union[int, float] = _DEFAULT_RANK,
         init_range: float = _DEFAULT_INIT_RANGE,
         device=None,
         dtype=None,
@@ -224,7 +228,8 @@ class SPLoRAConv1d(_SPLoRAConvNd, nn.Conv1d):
         groups: int = 1,
         bias: bool = True,
         padding_mode: str = "zeros",
-        rank: int = 16,
+        # rank (int) or fraction of output_channels
+        rank: Union[int, float] = _DEFAULT_RANK,
         init_range: float = _DEFAULT_INIT_RANGE,
         device=None,
         dtype=None,
@@ -261,7 +266,8 @@ class SPLoRAConv1d(_SPLoRAConvNd, nn.Conv1d):
     def from_module(
         cls,
         module: nn.Conv1d,
-        rank: int = 16,
+        # rank (int) or fraction of output_channels
+        rank: Union[int, float] = _DEFAULT_RANK,
         init_range: float = _DEFAULT_INIT_RANGE,
     ) -> "SPLoRAConv1d":
         instance = SPLoRAConv1d(
@@ -295,7 +301,8 @@ class SPLoRAConv2d(_SPLoRAConvNd, nn.Conv2d):
         groups: int = 1,
         bias: bool = True,
         padding_mode: str = "zeros",
-        rank: int = 16,
+        # rank (int) or fraction of output_channels
+        rank: Union[int, float] = _DEFAULT_RANK,
         init_range: float = _DEFAULT_INIT_RANGE,
         device=None,
         dtype=None,
@@ -332,7 +339,8 @@ class SPLoRAConv2d(_SPLoRAConvNd, nn.Conv2d):
     def from_module(
         cls,
         module: nn.Conv1d,
-        rank: int = 16,
+        # rank (int) or fraction of output_channels
+        rank: Union[int, float] = _DEFAULT_RANK,
         init_range: float = _DEFAULT_INIT_RANGE,
     ) -> "SPLoRAConv2d":
         instance = SPLoRAConv2d(
@@ -366,7 +374,8 @@ class SPLoRAConv3d(_SPLoRAConvNd, nn.Conv3d):
         groups: int = 1,
         bias: bool = True,
         padding_mode: str = "zeros",
-        rank: int = 16,
+        # rank (int) or fraction of output_channels
+        rank: Union[int, float] = _DEFAULT_RANK,
         init_range: float = _DEFAULT_INIT_RANGE,
         device=None,
         dtype=None,
@@ -403,7 +412,8 @@ class SPLoRAConv3d(_SPLoRAConvNd, nn.Conv3d):
     def from_module(
         cls,
         module: nn.Conv1d,
-        rank: int = 16,
+        # rank (int) or fraction of output_channels
+        rank: Union[int, float] = _DEFAULT_RANK,
         init_range: float = _DEFAULT_INIT_RANGE,
     ) -> "SPLoRAConv3d":
         instance = SPLoRAConv3d(
@@ -427,7 +437,9 @@ class SPLoRAConv3d(_SPLoRAConvNd, nn.Conv3d):
 
 def SPLoRA(
     module: AdaptableModule,
-    rank: int = 16,
+    rank: Union[
+        int, float
+    ] = _DEFAULT_RANK,  # rank (int) or fraction of output_channels
     init_range: float = _DEFAULT_INIT_RANGE,
     inplace=False,
     replacements=[
