@@ -22,7 +22,7 @@ def test_splora_linear():
     # Test __repr__
     assert (
         splin.__repr__()
-        == "SPLoRALinear(\n  in_features=9, out_features=4, bias=True\n  (adapter): LowRankMatrix(1, 4, 9)\n)"
+        == "SPLoRALinear(\n  in_features=9, out_features=4, bias=True\n  (adapter): LowRankMatrix(num_filters=1, in_features=9, out_features=4, rank=2)\n)"
     )
 
     # Prepare optim

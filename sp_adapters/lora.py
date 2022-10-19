@@ -5,18 +5,28 @@ from torch import nn
 
 
 class LowRankMatrix(nn.Module):  # Inherit __setattr__
-    def __init__(self, n: int, p: int, q: int, rank: int = 1, init_near_zero=False):
+    def __init__(
+        self,
+        num_filters: int,
+        in_features: int,
+        out_features: int,
+        rank: int = 1,
+        init_near_zero=False,
+    ):
         nn.Module.__init__(self)
-        self.n, self.p, self.q = n, p, q
-        self.cols = nn.Parameter(torch.Tensor(n, p, rank))
-        self.rows = nn.Parameter(torch.Tensor(n, rank, q))
+        self.rank = rank
+        self.num_filters = num_filters
+        self.in_features = in_features
+        self.out_features = out_features
+        self.cols = nn.Parameter(torch.Tensor(num_filters, out_features, rank))
+        self.rows = nn.Parameter(torch.Tensor(num_filters, rank, in_features))
         self.reset_parameters(init_near_zero)
 
     def __call__(self):
         return self.cols @ self.rows
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.n}, {self.p}, {self.q})"
+        return f"{self.__class__.__name__}(num_filters={self.num_filters}, in_features={self.in_features}, out_features={self.out_features}, rank={self.rank})"
 
     def reset_parameters(self, init_near_zero=False) -> None:
         # Init as in torch.nn.Linear.reset_parameters
