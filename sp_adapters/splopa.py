@@ -167,9 +167,9 @@ class SPLoPAdapter(nn.Module):  # Inherit __setattr__
         ), f"Weight shape should be devisible by block shape, but found {weight_shape} and {block_shape}"
 
         if shared_prototypes:
-            self.prototypes = SharedPrototypes(num_prototypes, p, q, prototype_rank)
+            self.prototypes = SharedPrototypes(num_prototypes, q, p, prototype_rank)
         else:
-            self.prototypes = LowRankMatrix(num_prototypes, p, q, prototype_rank)
+            self.prototypes = LowRankMatrix(num_prototypes, q, p, prototype_rank)
 
         if shared_pos_weights:
             self.pos_weights = SharedPosWeights(

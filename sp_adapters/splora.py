@@ -11,6 +11,29 @@ from .utils import copy_linear_params_, recursive_replace
 _DEFAULT_INIT_RANGE = 1e-4
 
 
+def _configure_parameter_read(
+    self,
+    adapter_weights_only=True,
+    in_features_mask: torch.BoolTensor = None,
+    out_features_mask: torch.BoolTensor = None,
+):
+    self._read_adapter_weights_only = adapter_weights_only
+    self._in_features_mask = in_features_mask
+    self._out_features_mask = out_features_mask
+
+
+def _named_parameters(
+    self, prefix: str = "", recurse: bool = True
+) -> Iterator[Tuple[str, nn.Parameter]]:
+    for name, param in nn.Module.named_parameters(self, prefix, recurse):
+        if not self._read_adapter_weights_only or "adapter" in name:
+            if name == "adapter.rows" and self._in_features_mask is not None:
+                param = param[:, :, self._in_features_mask].flatten()
+            if name == "adapter.cols" and self._out_features_mask is not None:
+                param = param[:, self._out_features_mask, :].flatten()
+            yield (name, param)
+
+
 class SPLoRALinear(nn.Linear):
     def __init__(
         self,
@@ -39,7 +62,7 @@ class SPLoRALinear(nn.Linear):
             self.register_parameter("bias", None)
 
         self.adapter = LowRankMatrix(
-            1, out_features, in_features, rank, init_near_zero=True
+            1, in_features, out_features, rank, init_near_zero=True
         )
         if bias:
             self.adapter_bias = nn.Parameter(
@@ -72,20 +95,14 @@ class SPLoRALinear(nn.Linear):
         in_features_mask: torch.BoolTensor = None,
         out_features_mask: torch.BoolTensor = None,
     ):
-        self._read_adapter_weights_only = adapter_weights_only
-        self._in_features_mask = in_features_mask
-        self._out_features_mask = out_features_mask
+        return _configure_parameter_read(
+            self, adapter_weights_only, in_features_mask, out_features_mask
+        )
 
     def named_parameters(
         self, prefix: str = "", recurse: bool = True
     ) -> Iterator[Tuple[str, nn.Parameter]]:
-        for name, param in super().named_parameters(prefix, recurse):
-            if not self._read_adapter_weights_only or "adapter" in name:
-                if name == "adapter.rows" and self._in_features_mask is not None:
-                    param = param[:, :, self._in_features_mask].flatten()
-                if name == "adapter.cols" and self._out_features_mask is not None:
-                    param = param[:, self._out_features_mask, :].flatten()
-                yield (name, param)
+        return _named_parameters(self, prefix, recurse)
 
     @classmethod
     def from_module(
@@ -127,7 +144,7 @@ class _SPLoRAConvNd:
         self._nd = int(ConvCls.__name__[-2])
         self._ConvCls = ConvCls
         self.adapter = LowRankMatrix(
-            1, out_channels, in_channels, rank, init_near_zero=True
+            1, in_channels, out_channels, rank, init_near_zero=True
         )
         if bias:
             self.adapter_bias = nn.Parameter(
@@ -166,20 +183,14 @@ class _SPLoRAConvNd:
         in_features_mask: torch.BoolTensor = None,
         out_features_mask: torch.BoolTensor = None,
     ):
-        self._read_adapter_weights_only = adapter_weights_only
-        self._in_features_mask = in_features_mask
-        self._out_features_mask = out_features_mask
+        return _configure_parameter_read(
+            self, adapter_weights_only, in_features_mask, out_features_mask
+        )
 
     def named_parameters(
         self, prefix: str = "", recurse: bool = True
     ) -> Iterator[Tuple[str, nn.Parameter]]:
-        for name, param in super().named_parameters(prefix, recurse):
-            if not self._read_adapter_weights_only or "adapter" in name:
-                if name == "adapter.rows" and self._in_features_mask is not None:
-                    param = param[:, :, self._in_features_mask].flatten()
-                if name == "adapter.cols" and self._out_features_mask is not None:
-                    param = param[:, self._out_features_mask, :].flatten()
-                yield (name, param)
+        return _named_parameters(self, prefix, recurse)
 
     def to_module(self) -> torch.nn.modules.conv._ConvNd:
         instance = self._ConvCls(

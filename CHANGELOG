@@ -9,11 +9,22 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.4.2] - 2022-10-19
+### Changed
+- `LowRankMatrix` to use meaningful attribute names
+
+
+## [0.4.1] - 2022-10-19
+### Added
+- `SPLoRAConv1d`, `SPLoRAConv2d`, `SPLoRAConv3d` to __init__
+
+
 ## [0.4.0] - 2022-10-18
 ### Added
 - `SPLoRAConv1d`
 - `SPLoRAConv2d`
 - `SPLoRAConv3d`
+
 
 ## [0.3.0] - 2022-10-03
 ### Added

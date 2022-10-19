@@ -101,7 +101,7 @@ Adds a low-rank bottle-neck projection in projection in parallel with the main w
 
 <br/>
 
-### Structured Pruning Low-rank PHM Adapter (SPLoPA) _Block Pruning_
+### Structured Pruning Low-rank PHM Adapter (SPLoPA) for _Block Pruning_
 ```python3
 from sp_adapters import SPLoPA
 ```
