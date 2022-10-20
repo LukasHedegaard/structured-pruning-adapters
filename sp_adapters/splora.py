@@ -64,7 +64,7 @@ class SPLoRALinear(nn.Linear):
             self.register_parameter("bias", None)
 
         self.adapter = LowRankMatrix(
-            1, in_features, out_features, rank, init_near_zero=True
+            1, in_features, out_features, rank, init_range=init_range
         )
         if bias:
             self.adapter_bias = nn.Parameter(
@@ -148,7 +148,7 @@ class _SPLoRAConvNd:
         self._nd = int(ConvCls.__name__[-2])
         self._ConvCls = ConvCls
         self.adapter = LowRankMatrix(
-            1, in_channels, out_channels, rank, init_near_zero=True
+            1, in_channels, out_channels, rank, init_range=init_range
         )
         if bias:
             self.adapter_bias = nn.Parameter(
