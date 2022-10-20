@@ -9,6 +9,14 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.5.1] - 2022-10-20
+### Added
+- Add init_range to LowRankMatrix
+
+### Fixed
+- Splora init_range
+
+
 ## [0.5.0] - 2022-10-19
 ### Added
 - Fractional rank based on output_features in `LowRankMatrix`
