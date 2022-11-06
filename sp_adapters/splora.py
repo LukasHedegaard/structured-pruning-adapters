@@ -170,9 +170,7 @@ class _SPLoRAConvNd:
 
     @property
     def adapted_weight(self) -> nn.Parameter:
-        if self.weight.requires_grad:
-            self.weight.requires_grad = False
-            logger.warning("Forcing `weight.requires_grad = False`")
+        assert not self.weight.requires_grad
         w_diag = torch.zeros_like(self.weight)
         kdx = self.kernel_size[0] // 2
         center_inds = [kdx for _ in range(self._nd)]
