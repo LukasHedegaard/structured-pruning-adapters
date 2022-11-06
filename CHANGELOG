@@ -9,6 +9,12 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.5.2] - 2022-11-6
+### Changed
+- SPLoRA and SPLoPA behavior to automatically set weight.requires_grad = False instead of assertion
+- Change SPLoPA weight initialisation to set LowRankMatrix near-zero instead of pos_weigts
+
+
 ## [0.5.1] - 2022-10-20
 ### Added
 - Add init_range to LowRankMatrix

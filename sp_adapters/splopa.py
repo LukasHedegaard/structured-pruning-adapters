@@ -1,3 +1,5 @@
+import math
+from logging import getLogger
 from typing import Iterator, Tuple
 
 import torch
@@ -8,6 +10,8 @@ from .lora import LowRankMatrix
 from .utils import bkron, copy_linear_params_, recursive_replace
 
 _DEFAULT_INIT_RANGE = 1e-4
+
+logger = getLogger(__name__)
 
 
 def SPLoPA(
@@ -167,33 +171,40 @@ class SPLoPAdapter(nn.Module):  # Inherit __setattr__
         ), f"Weight shape should be devisible by block shape, but found {weight_shape} and {block_shape}"
 
         if shared_prototypes:
-            self.prototypes = SharedPrototypes(num_prototypes, q, p, prototype_rank)
+            self.prototypes = SharedPrototypes(
+                num_prototypes, q, p, prototype_rank, init_range
+            )
         else:
-            self.prototypes = LowRankMatrix(num_prototypes, q, p, prototype_rank)
+            self.prototypes = LowRankMatrix(
+                num_prototypes, q, p, prototype_rank, init_range
+            )
 
         if shared_pos_weights:
-            self.pos_weights = SharedPosWeights(
-                num_prototypes, n // p, m // q, init_range
-            )
+            self.pos_weights = SharedPosWeights(num_prototypes, n // p, m // q)
         else:
             self.pos_weights = nn.Parameter(
                 torch.Tensor(num_prototypes, n // p, m // q)
             )
-            nn.init.uniform_(self.pos_weights, -init_range, init_range)
+            nn.init.kaiming_uniform_(self.pos_weights, a=math.sqrt(5))
+            # nn.init.uniform_(self.pos_weights, -init_range, init_range)
 
-    def __call__(self, weights: torch.Tensor):
-        assert not weights.requires_grad
-        return weights + torch.sum(bkron(self.pos_weights, self.prototypes()), dim=0)
+    def __call__(self, weight: torch.Tensor):
+        if weight.requires_grad:
+            weight.requires_grad = False
+            logger.warning("Forcing `weight.requires_grad = False`")
+        return weight + torch.sum(bkron(self.pos_weights, self.prototypes()), dim=0)
 
 
 def _shared_prototypes_singleton():
     _prototypes = {}
 
-    def get_shared_prototype(n: int, p: int, q: int, rank: int = 1) -> LowRankMatrix:
+    def get_shared_prototype(
+        n: int, p: int, q: int, rank: int = 1, init_range: float = None
+    ) -> LowRankMatrix:
         nonlocal _prototypes
         key = (n, p, q, rank)
         if key not in _prototypes:
-            _prototypes[key] = LowRankMatrix(n, p, q, rank)
+            _prototypes[key] = LowRankMatrix(n, p, q, rank, init_range)
 
         return _prototypes[key]
 
@@ -204,13 +215,16 @@ def _shared_pos_weights_singleton():
     _pos_weights = {}
 
     def get_shared_pos_weights(
-        n: int, p: int, q: int, init_range: float
+        n: int, p: int, q: int, init_range: float = None
     ) -> nn.Parameter:
         nonlocal _pos_weights
         key = (n, p, q)
         if key not in _pos_weights:
             _pos_weights[key] = nn.Parameter(torch.Tensor(n, p, q))
-            nn.init.uniform_(_pos_weights[key], -init_range, init_range)
+            if init_range is None:
+                nn.init.kaiming_uniform_(_pos_weights[key], a=math.sqrt(5))
+            else:
+                nn.init.uniform_(_pos_weights[key], -init_range, init_range)
 
         return _pos_weights[key]
 

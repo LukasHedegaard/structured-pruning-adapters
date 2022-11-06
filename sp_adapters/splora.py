@@ -1,3 +1,4 @@
+from logging import getLogger
 from typing import Iterator, Tuple, Union
 
 import torch
@@ -7,6 +8,8 @@ from torch.nn.common_types import _size_1_t, _size_2_t, _size_3_t
 from .base import AdaptableModule
 from .lora import LowRankMatrix
 from .utils import copy_linear_params_, recursive_replace
+
+logger = getLogger(__name__)
 
 _DEFAULT_RANK = 16
 _DEFAULT_INIT_RANGE = 1e-4
@@ -81,7 +84,9 @@ class SPLoRALinear(nn.Linear):
 
     @property
     def adapted_weight(self) -> nn.Parameter:
-        assert not self.weight.requires_grad
+        if self.weight.requires_grad:
+            self.weight.requires_grad = False
+            logger.warning("Forcing `weight.requires_grad = False`")
         return self.adapter().squeeze(0) + self.weight
 
     @property

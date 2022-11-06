@@ -36,7 +36,9 @@ def test_splora_linear():
 
     # Forwards are approx equal since adapters were initialized with near-zero values
     lin_out = lin.forward(x)
+    splin.weight.requires_grad = True
     splin_out = splin.forward(x)
+    assert not splin.weight.requires_grad  # adapter enforced requires_grad=False
     assert torch.allclose(lin_out, splin_out, atol=1e-3)
 
     # Train a bit
