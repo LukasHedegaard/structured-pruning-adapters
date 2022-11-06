@@ -1,3 +1,4 @@
+from logging import getLogger
 from typing import Iterator, Tuple
 
 import torch
@@ -8,6 +9,8 @@ from .lora import LowRankMatrix
 from .utils import bkron, copy_linear_params_, recursive_replace
 
 _DEFAULT_INIT_RANGE = 1e-4
+
+logger = getLogger(__name__)
 
 
 def SPLoPA(
@@ -181,9 +184,11 @@ class SPLoPAdapter(nn.Module):  # Inherit __setattr__
             )
             nn.init.uniform_(self.pos_weights, -init_range, init_range)
 
-    def __call__(self, weights: torch.Tensor):
-        assert not weights.requires_grad
-        return weights + torch.sum(bkron(self.pos_weights, self.prototypes()), dim=0)
+    def __call__(self, weight: torch.Tensor):
+        if weight.requires_grad:
+            weight.requires_grad = False
+            logger.warning("Forcing `weight.requires_grad = False`")
+        return weight + torch.sum(bkron(self.pos_weights, self.prototypes()), dim=0)
 
 
 def _shared_prototypes_singleton():

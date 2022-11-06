@@ -84,7 +84,9 @@ class SPLoRALinear(nn.Linear):
 
     @property
     def adapted_weight(self) -> nn.Parameter:
-        assert not self.weight.requires_grad
+        if self.weight.requires_grad:
+            self.weight.requires_grad = False
+            logger.warning("Forcing `weight.requires_grad = False`")
         return self.adapter().squeeze(0) + self.weight
 
     @property
@@ -168,7 +170,6 @@ class _SPLoRAConvNd:
 
     @property
     def adapted_weight(self) -> nn.Parameter:
-        # assert not self.weight.requires_grad
         if self.weight.requires_grad:
             self.weight.requires_grad = False
             logger.warning("Forcing `weight.requires_grad = False`")

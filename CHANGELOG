@@ -10,7 +10,7 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 ## [Unreleased]
 
 ### Changed
-- SPLoRA behavior to enforce weight.requires_grad = False instead of assertion
+- SPLoRA and SPLoPA behavior to automatically set weight.requires_grad = False instead of assertion
 
 
 ## [0.5.1] - 2022-10-20
