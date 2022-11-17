@@ -70,7 +70,7 @@ Use in conjunction with any Structured Pruning technique.
     # Or replace all applicable layers in a network
     spa_net = SPLoRA(reg_net, rank=32)
     ```
-3. Employ any Structured Pruning method, e.g [this](https://github.com/huggingface/block_movement_pruning) or [that](https://github.com/seulkiyeom/LRP_Pruning).
+3. Employ any Structured Pruning method. We conducted extensive experimens with multiple [channel-pruning](https://github.com/lukashedegaard/channel-spa-experiments) and [block-pruning](https://github.com/lukashedegaard/block-spa-experiments) methods.
 
 4. Get pruned SP Adapter weights:
     ```python3
