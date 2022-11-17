@@ -1,33 +1,33 @@
 # Structured Pruning Adapters for PyTorch
 
 <div align="left">
-  <!-- <a href="https://pypi.org/project/structured-pruning-adapters/">
+  <a href="https://pypi.org/project/structured-pruning-adapters/">
     <img src="https://img.shields.io/pypi/pyversions/structured-pruning-adapters" height="20" >
   </a>
   <a href="https://badge.fury.io/py/structured-pruning-adapters">
     <img src="https://badge.fury.io/py/structured-pruning-adapters.svg" height="20" >
-  </a> -->
+  </a>
   <!-- <a href="https://structured-pruning-adapters.readthedocs.io/en/latest/?badge=latest">
     <img src="https://readthedocs.org/projects/structured-pruning-adapters/badge/?version=latest" alt="Documentation Status" height="20"/>
   </a> -->
   <!-- <a href="https://pepy.tech/project/structured-pruning-adapters">
     <img src="https://pepy.tech/badge/structured-pruning-adapters" height="20">
   </a> -->
-  <!-- <a href="https://codecov.io/gh/LukasHedegaard/structured-pruning-adapters">
-    <img src="https://codecov.io/gh/LukasHedegaard/structured-pruning-adapters/branch/main/graph/badge.svg?token=????" height="20"/>
-  </a> -->
   <a href="https://opensource.org/licenses/Apache-2.0">
     <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" height="20">
   </a>
-  <!-- <a href="https://arxiv.org/abs/2204.03418">
-    <img src="http://img.shields.io/badge/paper-arxiv.2204.03418-B31B1B.svg" height="20" >
+  <!-- <a href="https://arxiv.org/abs/????.?????">
+    <img src="http://img.shields.io/badge/paper-arxiv.????.?????-B31B1B.svg" height="20" >
   </a> -->
   <a href="https://github.com/psf/black">
     <img src="https://img.shields.io/badge/code%20style-black-000000.svg" height="20">
   </a>
-  <!-- <a href="https://www.codefactor.io/repository/github/lukashedegaard/structured-pruning-adapters/overview/main">
-    <img src="https://www.codefactor.io/repository/github/lukashedegaard/structured-pruning-adapters/badge/main" alt="CodeFactor" height="20" />
-  </a> -->
+    <a href="https://codecov.io/github/LukasHedegaard/structured-pruning-adapters" > 
+    <img src="https://codecov.io/github/LukasHedegaard/structured-pruning-adapters/branch/main/graph/badge.svg?token=WHBSM01TRN"/> 
+  </a>
+  <a href="https://www.codefactor.io/repository/github/lukashedegaard/structured-pruning-adapters">
+    <img src="https://www.codefactor.io/repository/github/lukashedegaard/structured-pruning-adapters/badge" alt="CodeFactor" />
+  </a>
 </div>
 
 ```bash
