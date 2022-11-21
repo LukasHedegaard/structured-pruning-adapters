@@ -16,9 +16,9 @@
   <a href="https://opensource.org/licenses/Apache-2.0">
     <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" height="20">
   </a>
-  <!-- <a href="https://arxiv.org/abs/????.?????">
-    <img src="http://img.shields.io/badge/paper-arxiv.????.?????-B31B1B.svg" height="20" >
-  </a> -->
+  <a href="https://arxiv.org/abs/2211.10155">
+    <img src="http://img.shields.io/badge/paper-arxiv.2211.10155-B31B1B.svg" height="20" >
+  </a>
   <a href="https://github.com/psf/black">
     <img src="https://img.shields.io/badge/code%20style-black-000000.svg" height="20">
   </a>
@@ -118,7 +118,7 @@ If you enjoy this work, please consider citing it
 @article{hedegaard2022cotrans,
   title={Structured Pruning Adapters},
   author={Lukas Hedegaard, Aman Alok, Juby Jose, Alexandros Iosifidis},
-  journal={preprint, arXiv:TBD},
+  journal={preprint, arXiv:2211.10155},
   year={2022}
 }
 ```
