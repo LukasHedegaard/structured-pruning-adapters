@@ -117,7 +117,7 @@ If you enjoy this work, please consider citing it
 ```bibtex
 @article{hedegaard2022structured,
   title={Structured Pruning Adapters},
-  author={Lukas Hedegaard, Aman Alok, Juby Jose, Alexandros Iosifidis},
+  author={Lukas Hedegaard and Aman Alok and Juby Jose and Alexandros Iosifidis},
   journal={preprint, arXiv:2211.10155},
   year={2022}
 }
