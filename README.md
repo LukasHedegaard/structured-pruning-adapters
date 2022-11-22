@@ -115,7 +115,7 @@ Uses a variation on the Parameterized Hypercomplex Multiplication (PHM) layer [[
 ## Citation
 If you enjoy this work, please consider citing it
 ```bibtex
-@article{hedegaard2022cotrans,
+@article{hedegaard2022structured,
   title={Structured Pruning Adapters},
   author={Lukas Hedegaard, Aman Alok, Juby Jose, Alexandros Iosifidis},
   journal={preprint, arXiv:2211.10155},
