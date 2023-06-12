@@ -4,3 +4,4 @@ flake8-black
 isort>=5.7
 pytest
 pytest-cov
+torch-pruning

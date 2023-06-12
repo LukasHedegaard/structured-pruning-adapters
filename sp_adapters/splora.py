@@ -15,27 +15,47 @@ _DEFAULT_RANK = 16
 _DEFAULT_INIT_RANGE = 1e-4
 
 
-def _configure_parameter_read(
-    self,
+def named_parameters(
+    module: nn.Module,
+    prefix: str = "",
+    recurse: bool = True,
+    adapter_weights_only=True,
+    in_features_mask: torch.BoolTensor = None,
+    out_features_mask: torch.BoolTensor = None,
+) -> Iterator[Tuple[str, nn.Parameter]]:
+    for name, param in module.named_parameters(
+        prefix=prefix, recurse=recurse, remove_duplicate=True
+    ):
+        if name == "adapter.rows" and in_features_mask is not None:
+            param = param[:, :, in_features_mask]
+        elif name == "adapter.cols" and out_features_mask is not None:
+            param = param[:, out_features_mask, :]
+        elif name == "bias" and out_features_mask is not None:
+            param = param[out_features_mask]
+        elif name == "weight" and not adapter_weights_only:
+            if out_features_mask is not None:
+                param = param[out_features_mask]
+            if in_features_mask is not None:
+                param = param[:, in_features_mask]
+
+        if adapter_weights_only:
+            if name in {"adapter.rows", "adapter.cols", "bias"}:
+                yield (name, param)
+        else:
+            yield (name, param)
+
+
+def parameters(
+    module: nn.Module,
+    recurse: bool = True,
     adapter_weights_only=True,
     in_features_mask: torch.BoolTensor = None,
     out_features_mask: torch.BoolTensor = None,
 ):
-    self._read_adapter_weights_only = adapter_weights_only
-    self._in_features_mask = in_features_mask
-    self._out_features_mask = out_features_mask
-
-
-def _named_parameters(
-    self, prefix: str = "", recurse: bool = True
-) -> Iterator[Tuple[str, nn.Parameter]]:
-    for name, param in nn.Module.named_parameters(self, prefix, recurse):
-        if not self._read_adapter_weights_only or "adapter" in name:
-            if name == "adapter.rows" and self._in_features_mask is not None:
-                param = param[:, :, self._in_features_mask].flatten()
-            if name == "adapter.cols" and self._out_features_mask is not None:
-                param = param[:, self._out_features_mask, :].flatten()
-            yield (name, param)
+    for _, param in named_parameters(
+        module, "", recurse, adapter_weights_only, in_features_mask, out_features_mask
+    ):
+        yield param
 
 
 class SPLoRALinear(nn.Linear):
@@ -59,28 +79,17 @@ class SPLoRALinear(nn.Linear):
             requires_grad=False,
         )
         if bias:
-            self.bias = nn.Parameter(
-                torch.empty(out_features, **factory_kwargs),
-                requires_grad=False,
-            )
+            self.bias = nn.Parameter(torch.empty(out_features, **factory_kwargs))
         else:
             self.register_parameter("bias", None)
 
         self.adapter = LowRankMatrix(
             1, in_features, out_features, rank, init_range=init_range
         )
-        if bias:
-            self.adapter_bias = nn.Parameter(
-                torch.empty(out_features, **factory_kwargs)
-            )
-            nn.init.uniform_(self.adapter_bias, -init_range, init_range)
-        else:
-            self.register_parameter("adapter_bias", None)
         self.reset_parameters()
-        self.configure_parameter_read()
 
     def forward(self, input):
-        return nn.functional.linear(input, self.adapted_weight, self.adapted_bias)
+        return nn.functional.linear(input, self.adapted_weight, self.bias)
 
     @property
     def adapted_weight(self) -> nn.Parameter:
@@ -88,28 +97,6 @@ class SPLoRALinear(nn.Linear):
             self.weight.requires_grad = False
             logger.warning("Forcing `weight.requires_grad = False`")
         return self.adapter().squeeze(0) + self.weight
-
-    @property
-    def adapted_bias(self) -> nn.Parameter:
-        result = None
-        if self.adapter_bias is not None:
-            result = self.bias + self.adapter_bias
-        return result
-
-    def configure_parameter_read(
-        self,
-        adapter_weights_only=True,
-        in_features_mask: torch.BoolTensor = None,
-        out_features_mask: torch.BoolTensor = None,
-    ):
-        return _configure_parameter_read(
-            self, adapter_weights_only, in_features_mask, out_features_mask
-        )
-
-    def named_parameters(
-        self, prefix: str = "", recurse: bool = True
-    ) -> Iterator[Tuple[str, nn.Parameter]]:
-        return _named_parameters(self, prefix, recurse)
 
     @classmethod
     def from_module(
@@ -133,7 +120,7 @@ class SPLoRALinear(nn.Linear):
         instance = nn.Linear(self.in_features, self.out_features, self.bias is not None)
         instance.weight = torch.nn.Parameter(self.adapted_weight)
         if self.bias is not None:
-            instance.bias = torch.nn.Parameter(self.adapted_bias)
+            instance.bias = torch.nn.Parameter(self.bias)
         return instance
 
 
@@ -155,22 +142,14 @@ class _SPLoRAConvNd:
         self.adapter = LowRankMatrix(
             1, in_channels, out_channels, rank, init_range=init_range
         )
-        if bias:
-            self.adapter_bias = nn.Parameter(
-                torch.empty(out_channels, device=device, dtype=dtype)
-            )
-            nn.init.uniform_(self.adapter_bias, -init_range, init_range)
-        else:
-            self.register_parameter("adapter_bias", None)
-
-        self.configure_parameter_read()
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return self._conv_forward(input, self.adapted_weight, self.adapted_bias)
+        return self._conv_forward(input, self.adapted_weight, self.bias)
 
     @property
     def adapted_weight(self) -> nn.Parameter:
-        assert not self.weight.requires_grad
+        if self.weight.requires_grad:
+            self.weight.requires_grad = False
         w_diag = torch.zeros_like(self.weight)
         kdx = self.kernel_size[0] // 2
         center_inds = [kdx for _ in range(self._nd)]
@@ -178,28 +157,6 @@ class _SPLoRAConvNd:
         wdx = [slice(None), slice(None)] + center_inds
         w_diag.__setitem__(wdx, w_diag.__getitem__(wdx) + self.adapter().squeeze(0))
         return self.weight + w_diag
-
-    @property
-    def adapted_bias(self) -> nn.Parameter:
-        result = None
-        if self.adapter_bias is not None:
-            result = self.bias + self.adapter_bias
-        return result
-
-    def configure_parameter_read(
-        self,
-        adapter_weights_only=True,
-        in_features_mask: torch.BoolTensor = None,
-        out_features_mask: torch.BoolTensor = None,
-    ):
-        return _configure_parameter_read(
-            self, adapter_weights_only, in_features_mask, out_features_mask
-        )
-
-    def named_parameters(
-        self, prefix: str = "", recurse: bool = True
-    ) -> Iterator[Tuple[str, nn.Parameter]]:
-        return _named_parameters(self, prefix, recurse)
 
     def to_module(self) -> torch.nn.modules.conv._ConvNd:
         instance = self._ConvCls(
@@ -217,7 +174,7 @@ class _SPLoRAConvNd:
         )
         instance.weight = torch.nn.Parameter(self.adapted_weight)
         if self.bias is not None:
-            instance.bias = torch.nn.Parameter(self.adapted_bias)
+            instance.bias = torch.nn.Parameter(self.bias)
         return instance
 
 

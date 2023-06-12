@@ -2,7 +2,12 @@ import torch
 from torch import nn
 
 from sp_adapters import SPLoRA
-from sp_adapters.splora import _DEFAULT_INIT_RANGE, SPLoRALinear
+from sp_adapters.splora import (
+    _DEFAULT_INIT_RANGE,
+    SPLoRALinear,
+    named_parameters,
+    parameters,
+)
 
 EPS = 1e-9
 
@@ -32,7 +37,6 @@ def test_splora_linear():
     # Save for later comparison
     prev_adapter_cols = torch.clone(splin.adapter.cols)
     prev_adapter_rows = torch.clone(splin.adapter.rows)
-    prev_bias = torch.clone(splin.adapter_bias)
 
     # Forwards are approx equal since adapters were initialized with near-zero values
     lin_out = lin.forward(x)
@@ -49,33 +53,37 @@ def test_splora_linear():
 
     # Linear params remain unchanged
     assert torch.equal(lin.weight, splin.weight)
-    assert torch.equal(lin.bias, splin.bias)
 
     # Adapter params changed!
+    assert not torch.equal(lin.bias, splin.bias)
     assert not torch.equal(splin.adapter.cols, prev_adapter_cols)
     assert not torch.equal(splin.adapter.rows, prev_adapter_rows)
-    assert not torch.equal(splin.adapter_bias, prev_bias)
 
     # Count params
-    tot_params = sum([torch.Tensor([p.shape]).prod() for p in splin.parameters()])
+    # tot_params = sum([torch.Tensor([p.shape]).prod() for p in splin.parameters()])
 
     # Count masked params
     in_features_mask = torch.tensor([1, 0, 1, 1, 0, 1, 0, 0, 0], dtype=torch.bool)
     out_features_mask = torch.tensor([1, 0, 1, 0], dtype=torch.bool)
 
-    splin.configure_parameter_read(
-        in_features_mask=in_features_mask, out_features_mask=out_features_mask
-    )
     tot_masked_params = sum(
-        [torch.Tensor([p.shape]).prod() for p in splin.parameters()]
+        [
+            torch.Tensor([p.shape]).prod()
+            for p in parameters(
+                splin,
+                adapter_weights_only=True,
+                in_features_mask=in_features_mask,
+                out_features_mask=out_features_mask,
+            )
+        ]
     )
-
-    assert tot_masked_params == tot_params - 5 * rank - 2 * rank
+    #                           in_feat    out_feat   bias
+    assert tot_masked_params == rank * 4 + rank * 2 + 2
 
     # Export to lin
     lin2 = splin.to_module()
     assert torch.equal(lin2.weight, splin.adapted_weight)
-    assert torch.equal(lin2.bias, splin.adapted_bias)
+    assert torch.equal(lin2.bias, splin.bias)
 
 
 def test_splora_conv():
@@ -107,8 +115,6 @@ def test_splora_conv():
         # Save for later comparison
         prev_adapter_cols = torch.clone(spconv.adapter.cols)
         prev_adapter_rows = torch.clone(spconv.adapter.rows)
-        if bias:
-            prev_bias = torch.clone(spconv.adapter_bias)
 
         # Forwards are approx equal since adapters were initialized with near-zero values
         conv_out = conv.forward(x)
@@ -123,36 +129,42 @@ def test_splora_conv():
 
         # Linear params remain unchanged
         assert torch.equal(conv.weight, spconv.weight)
-        if bias:
-            assert torch.equal(conv.bias, spconv.bias)
 
         # Adapter params changed!
+        if bias:
+            assert not torch.equal(conv.bias, spconv.bias)
         assert not torch.equal(spconv.adapter.cols, prev_adapter_cols)
         assert not torch.equal(spconv.adapter.rows, prev_adapter_rows)
-        if bias:
-            assert not torch.equal(spconv.adapter_bias, prev_bias)
 
         # Count params
-        tot_params = sum([torch.Tensor([p.shape]).prod() for p in spconv.parameters()])
+        # tot_params = sum([torch.Tensor([p.shape]).prod() for p in spconv.parameters()])
 
         # Count masked params
         in_features_mask = torch.tensor([1, 0, 1, 1, 0, 1, 0, 0, 0], dtype=torch.bool)
         out_features_mask = torch.tensor([1, 0, 1, 0], dtype=torch.bool)
 
-        spconv.configure_parameter_read(
-            in_features_mask=in_features_mask, out_features_mask=out_features_mask
-        )
         tot_masked_params = sum(
-            [torch.Tensor([p.shape]).prod() for p in spconv.parameters()]
+            [
+                torch.Tensor([p.shape]).prod()
+                for p in parameters(
+                    spconv,
+                    adapter_weights_only=True,
+                    in_features_mask=in_features_mask,
+                    out_features_mask=out_features_mask,
+                )
+            ]
         )
 
-        assert tot_masked_params == tot_params - 5 * rank - 2 * rank
+        if bias:
+            assert tot_masked_params == 4 * rank + 2 * rank + 2
+        else:
+            assert tot_masked_params == 4 * rank + 2 * rank
 
         # Export to conv
         conv2 = spconv.to_module()
         assert torch.equal(conv2.weight, spconv.adapted_weight)
         if bias:
-            assert torch.equal(conv2.bias, spconv.adapted_bias)
+            assert torch.equal(conv2.bias, spconv.bias)
 
 
 def test_splora_named_parameters():
@@ -161,27 +173,22 @@ def test_splora_named_parameters():
     rank = 2
 
     splin1 = SPLoRALinear(in_features, out_features, rank=rank, bias=True)
-    nps1 = {v[0] for v in splin1.named_parameters()}
+    nps1 = {v[0] for v in named_parameters(splin1)}
     assert "adapter.rows" in nps1
     assert "adapter.cols" in nps1
-    assert "adapter_bias" in nps1
 
     # Linear params exis, but do not show in named_parameters
     assert "weight" not in nps1
-    assert "bias" not in nps1
     assert isinstance(splin1.weight, nn.Parameter)
     assert isinstance(splin1.bias, nn.Parameter)
 
     splin2 = SPLoRALinear(in_features, out_features, rank=rank, bias=False)
-    nps2 = {v[0] for v in splin2.named_parameters()}
+    nps2 = {v[0] for v in named_parameters(splin2)}
     assert "adapter.rows" in nps2
     assert "adapter.cols" in nps2
-    assert "adapter_bias" not in nps2  # <==
-    assert splin2.adapter_bias is None
 
-    # Linear params exis, but do not show in named_parameters
+    # Linear params exist, but do not show in named_parameters
     assert "weight" not in nps2
-    assert "bias" not in nps2
     assert isinstance(splin2.weight, nn.Parameter)
     assert splin2.bias is None
 
@@ -220,17 +227,9 @@ def test_conversion():
 
     # Same weight
     assert torch.equal(net.seq[0].weight, anet.seq[0].weight)
-    assert torch.equal(net.seq[0].bias, anet.seq[0].bias)
 
     # Adapted weight close but not equal
     assert torch.allclose(
         net.seq[0].weight, anet.seq[0].adapted_weight, atol=_DEFAULT_INIT_RANGE + EPS
     )
     assert not torch.equal(net.seq[0].weight, anet.seq[0].adapted_weight)
-
-    assert torch.allclose(
-        net.seq[0].bias, anet.seq[0].adapted_bias, atol=_DEFAULT_INIT_RANGE + EPS
-    )
-    assert not torch.equal(net.seq[0].bias, anet.seq[0].adapted_bias)
-
-    # Conversion only handles
