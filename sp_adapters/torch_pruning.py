@@ -5,11 +5,17 @@ import torch_pruning as tp
 from torch import nn
 from torch_pruning.pruner import function
 
-from .splora import SPLoRALinear  # , _SPLoRAConvNd
+from .splora import (
+    SPLoRAConv1d,
+    SPLoRAConv2d,
+    SPLoRAConv3d,
+    SPLoRALinear,
+    _SPLoRAConvNd,
+)
 
 __all__ = [
     "SPLoRALinearPruner",
-    # "SPLoRAConvPruner",
+    "SPLoRAConvPruner",
     "customized_pruners",
     "root_module_types",
     "MagnitudeImportance",
@@ -51,14 +57,75 @@ class SPLoRALinearPruner(function.BasePruningFunc):
         return layer.in_features
 
 
-# Pass this dict to the "customized_pruners" argument of pruners in the Torch Pruning lib
+class SPLoRAConvPruner(function.BasePruningFunc):
+    TARGET_MODULE = _SPLoRAConvNd
+
+    def prune_out_channels(self, layer: nn.Module, idxs: Sequence[int]) -> nn.Module:
+        keep_idxs = list(set(range(layer.out_channels)) - set(idxs))
+        keep_idxs.sort()
+        layer.out_channels = layer.out_channels - len(idxs)
+        if not layer.transposed:
+            layer.weight = self._prune_parameter_and_grad(layer.weight, keep_idxs, 0)
+        else:
+            layer.weight = self._prune_parameter_and_grad(layer.weight, keep_idxs, 1)
+
+        if layer.bias is not None:
+            layer.bias = self._prune_parameter_and_grad(layer.bias, keep_idxs, 0)
+
+        layer.adapter.out_features = layer.adapter.out_features - len(idxs)
+        layer.adapter.cols = self._prune_parameter_and_grad(
+            layer.adapter.cols, keep_idxs, 1
+        )
+        return layer
+
+    def prune_in_channels(self, layer: nn.Module, idxs: Sequence[int]) -> nn.Module:
+        keep_idxs = list(set(range(layer.in_channels)) - set(idxs))
+        keep_idxs.sort()
+        layer.in_channels = layer.in_channels - len(idxs)
+        if layer.groups > 1:
+            keep_idxs = keep_idxs[: len(keep_idxs) // layer.groups]
+
+        if not layer.transposed:
+            layer.weight = self._prune_parameter_and_grad(layer.weight, keep_idxs, 1)
+        else:
+            layer.weight = self._prune_parameter_and_grad(layer.weight, keep_idxs, 0)
+
+        layer.adapter.in_features = layer.adapter.in_features - len(idxs)
+        layer.adapter.rows = self._prune_parameter_and_grad(
+            layer.adapter.rows, keep_idxs, 2
+        )
+        return layer
+
+    def get_out_channels(self, layer):
+        return layer.out_channels
+
+    def get_in_channels(self, layer):
+        return layer.in_channels
+
+
 splora_linear_pruner = SPLoRALinearPruner()
+splora_conv_pruner = SPLoRAConvPruner()
+
+# Pass this dict to the "customized_pruners" argument of pruners in the Torch Pruning lib
 customized_pruners = {
     SPLoRALinear: splora_linear_pruner,
-    # _SPLoRAConvNd: SPLoRAConvPruner,
+    _SPLoRAConvNd: splora_conv_pruner,
+    SPLoRAConv1d: splora_conv_pruner,
+    SPLoRAConv2d: splora_conv_pruner,
+    SPLoRAConv3d: splora_conv_pruner,
 }
 
-root_module_types = [nn.modules.conv._ConvNd, nn.Linear, nn.LSTM, SPLoRALinear]
+# Pass this dict to the "root_module_types" argument of pruners in the Torch Pruning lib
+root_module_types = [
+    nn.modules.conv._ConvNd,
+    nn.Linear,
+    nn.LSTM,
+    SPLoRALinear,
+    _SPLoRAConvNd,
+    SPLoRAConv1d,
+    SPLoRAConv2d,
+    SPLoRAConv3d,
+]
 
 
 class MagnitudeImportance(tp.importance.MagnitudeImportance):
@@ -91,6 +158,7 @@ class MagnitudeImportance(tp.importance.MagnitudeImportance):
             # SPLoRA out_channels
             elif prune_fn in [  # Added
                 splora_linear_pruner.prune_out_channels,
+                splora_conv_pruner.prune_out_channels,
             ]:
                 if hasattr(layer, "transposed") and layer.transposed:
                     w = layer.adapted_weight.data.transpose(1, 0)[idxs].flatten(1)
@@ -136,8 +204,9 @@ class MagnitudeImportance(tp.importance.MagnitudeImportance):
                 group_imp.append(local_norm)
 
             # SPLoRA in_channels
-            elif prune_fn in [
-                splora_linear_pruner.prune_in_channels,  # Added
+            elif prune_fn in [  # Added
+                splora_linear_pruner.prune_in_channels,
+                splora_conv_pruner.prune_in_channels,
             ]:
                 # is_conv_flatten_linear = False
                 if hasattr(layer, "transposed") and layer.transposed:

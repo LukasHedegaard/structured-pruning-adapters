@@ -206,6 +206,110 @@ def test_SPLoRALinear_magpruner():
     assert torch.equal(model.adapter.rows, old_adapter_rows)  # Unchanged
 
 
+def test_SPLoRAConv_pruning():
+    class FullyConnectedNet(nn.Module):
+        def __init__(self, input_size, num_classes, hidden_units):
+            super().__init__()
+            self.c1 = nn.Conv1d(input_size, hidden_units, kernel_size=3)
+            self.customized_layer = spa.SPLoRAConv1d(
+                hidden_units,
+                2 * hidden_units,
+                kernel_size=3,
+                rank=2,
+            )
+            self.c2 = nn.Conv1d(2 * hidden_units, num_classes, kernel_size=3)
+
+        def forward(self, x):
+            x = F.relu(self.c1(x))
+            x = self.customized_layer(x)
+            y_hat = self.c2(x)
+            return y_hat
+
+    num_classes = 10
+    d_in = 8
+    d_hidden = 16
+    seq_len = 7
+    model = FullyConnectedNet(d_in, num_classes, d_hidden)
+
+    old_weight = model.customized_layer.weight.clone()
+    old_bias = model.customized_layer.bias.clone()
+    old_adapter_rows = model.customized_layer.adapter.rows.clone()
+    old_adapter_cols = model.customized_layer.adapter.cols.clone()
+
+    DG = tp.DependencyGraph()
+
+    DG.build_dependency(
+        model,
+        example_inputs=torch.randn(1, d_in, seq_len),
+        customized_pruners=spa.torch_pruning.customized_pruners,
+    )
+    # Get a pruning group according to the dependency graph.
+    # idxs is the indices of pruned filters.
+    # Prune out channels
+    prune_idxs = [0, 1, 6]
+    keep_idxs = list(set(range(model.customized_layer.in_channels)) - set(prune_idxs))
+    pruning_group = DG.get_pruning_group(
+        model.c1, tp.prune_conv_out_channels, idxs=prune_idxs
+    )
+    print(pruning_group)
+
+    # Execute this group (prune the model)
+    pruning_group.prune()
+
+    # Changed
+    assert torch.allclose(old_weight[:, keep_idxs], model.customized_layer.weight)
+    assert torch.allclose(
+        old_adapter_rows[:, :, keep_idxs],
+        model.customized_layer.adapter.rows,
+    )
+
+    assert model.c1.out_channels == d_hidden - len(prune_idxs)
+    assert model.customized_layer.in_channels == d_hidden - len(prune_idxs)
+    assert model.customized_layer.adapter.in_features == d_hidden - len(prune_idxs)
+
+    # Unchanged
+    assert torch.allclose(old_bias, model.customized_layer.bias)
+    assert torch.allclose(old_adapter_cols, model.customized_layer.adapter.cols)
+
+    assert model.customized_layer.out_channels == 2 * d_hidden
+    assert model.c2.in_channels == 2 * d_hidden
+    assert model.customized_layer.adapter.out_features == 2 * d_hidden
+
+    # print("The pruned model:\n", model)
+    assert model(torch.randn(1, d_in, seq_len)).shape == (1, num_classes, 1)
+
+    # Repeat for in_channels
+    keep_idxs_out = list(
+        set(range(model.customized_layer.out_channels)) - set(prune_idxs)
+    )
+    pruning_group = DG.get_pruning_group(
+        model.c2, tp.prune_conv_in_channels, idxs=prune_idxs
+    )
+
+    pruning_group.prune()
+
+    # Changed
+    assert torch.allclose(
+        old_weight[keep_idxs_out][:, keep_idxs], model.customized_layer.weight
+    )
+    assert torch.allclose(old_bias[keep_idxs_out], model.customized_layer.bias)
+    assert torch.allclose(
+        old_bias[keep_idxs_out],
+        model.customized_layer.bias,
+    )
+    assert torch.allclose(
+        old_adapter_cols[:, keep_idxs_out],
+        model.customized_layer.adapter.cols,
+    )
+
+    assert model.customized_layer.out_channels == 2 * d_hidden - len(prune_idxs)
+    assert model.customized_layer.adapter.out_features == 2 * d_hidden - len(prune_idxs)
+    assert model.c2.in_channels == 2 * d_hidden - len(prune_idxs)
+
+    # print("The pruned model:\n", model)
+    assert model(torch.randn(1, d_in, seq_len)).shape == (1, num_classes, 1)
+
+
 if __name__ == "__main__":
     # test_SPLoRALinear_pruning()
     test_SPLoRALinear_magpruner()
