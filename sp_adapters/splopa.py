@@ -79,44 +79,14 @@ class SPLoPALinear(nn.Linear):
             shared_pos_weights,
             init_range,
         )
-        if bias:
-            self.adapter_bias = nn.Parameter(
-                torch.empty(out_features, **factory_kwargs)
-            )
-            nn.init.uniform_(self.adapter_bias, -init_range, init_range)
-        else:
-            self.register_parameter("adapter_bias", None)
         self.reset_parameters()
-        self.configure_parameter_read()
 
     def forward(self, input):
-        return nn.functional.linear(input, self.adapted_weight, self.adapted_bias)
+        return nn.functional.linear(input, self.adapted_weight, self.bias)
 
     @property
     def adapted_weight(self) -> nn.Parameter:
         return self.adapter(self.weight)
-
-    @property
-    def adapted_bias(self) -> nn.Parameter:
-        result = None
-        if self.adapter_bias is not None:
-            result = self.bias + self.adapter_bias
-        return result
-
-    def configure_parameter_read(
-        self, adapter_weights_only=True, mask: torch.BoolTensor = None
-    ):
-        self._read_adapter_weights_only = adapter_weights_only
-        self._read_mask = mask
-
-    def named_parameters(
-        self, prefix: str = "", recurse: bool = True
-    ) -> Iterator[Tuple[str, nn.Parameter]]:
-        for name, param in super().named_parameters(prefix, recurse):
-            if not self._read_adapter_weights_only or "adapter" in name:
-                if name == "adapter.pos_weights" and self._read_mask is not None:
-                    param = param[self._read_mask].flatten()
-                yield (name, param)
 
     @classmethod
     def from_module(
@@ -147,8 +117,32 @@ class SPLoPALinear(nn.Linear):
         instance = nn.Linear(self.in_features, self.out_features, self.bias is not None)
         instance.weight = torch.nn.Parameter(self.adapted_weight)
         if self.bias is not None:
-            instance.bias = torch.nn.Parameter(self.adapted_bias)
+            instance.bias = torch.nn.Parameter(self.bias)
         return instance
+
+
+def named_parameters(
+    splopa_model: nn.Module,
+    prefix: str = "",
+    recurse: bool = True,
+    adapter_weights_only: bool = True,
+    mask: torch.BoolTensor = None,
+) -> Iterator[Tuple[str, nn.Parameter]]:
+    for name, param in nn.Module.named_parameters(splopa_model, prefix, recurse):
+        if not adapter_weights_only or "adapter" in name:
+            if name == "adapter.pos_weights" and mask is not None:
+                param = param[mask].flatten()
+            yield (name, param)
+
+
+def parameters(
+    module: nn.Module,
+    recurse: bool = True,
+    adapter_weights_only: bool = True,
+    mask: torch.BoolTensor = None,
+):
+    for _, param in named_parameters(module, "", recurse, adapter_weights_only, mask):
+        yield param
 
 
 class SPLoPAdapter(nn.Module):  # Inherit __setattr__
