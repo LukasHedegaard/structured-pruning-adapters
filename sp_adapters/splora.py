@@ -211,7 +211,7 @@ class SPLoRAConv1d(_SPLoRAConvNd, nn.Conv1d):
             dtype,
         )
         assert len(set(self.kernel_size)) == 1, "All dimensions of kernel_size equal."
-        assert kernel_size[0] % 2 == 1, "kernel_size should be odd."
+        assert self.kernel_size[0] % 2 == 1, "kernel_size should be odd."
         _SPLoRAConvNd.__init__(
             self,
             nn.Conv1d,
@@ -284,7 +284,7 @@ class SPLoRAConv2d(_SPLoRAConvNd, nn.Conv2d):
             dtype,
         )
         assert len(set(self.kernel_size)) == 1, "All dimensions of kernel_size equal."
-        assert kernel_size[0] % 2 == 1, "kernel_size should be odd."
+        assert self.kernel_size[0] % 2 == 1, "kernel_size should be odd."
         _SPLoRAConvNd.__init__(
             self,
             nn.Conv2d,
@@ -357,7 +357,7 @@ class SPLoRAConv3d(_SPLoRAConvNd, nn.Conv3d):
             dtype,
         )
         assert len(set(self.kernel_size)) == 1, "All dimensions of kernel_size equal."
-        assert kernel_size[0] % 2 == 1, "kernel_size should be odd."
+        assert self.kernel_size[0] % 2 == 1, "kernel_size should be odd."
         _SPLoRAConvNd.__init__(
             self,
             nn.Conv3d,
