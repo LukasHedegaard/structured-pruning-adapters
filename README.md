@@ -1,33 +1,33 @@
 # Structured Pruning Adapters for PyTorch
 
 <div align="left">
-  <!-- <a href="https://pypi.org/project/structured-pruning-adapters/">
+  <a href="https://pypi.org/project/structured-pruning-adapters/">
     <img src="https://img.shields.io/pypi/pyversions/structured-pruning-adapters" height="20" >
   </a>
   <a href="https://badge.fury.io/py/structured-pruning-adapters">
     <img src="https://badge.fury.io/py/structured-pruning-adapters.svg" height="20" >
-  </a> -->
+  </a>
   <!-- <a href="https://structured-pruning-adapters.readthedocs.io/en/latest/?badge=latest">
     <img src="https://readthedocs.org/projects/structured-pruning-adapters/badge/?version=latest" alt="Documentation Status" height="20"/>
   </a> -->
   <!-- <a href="https://pepy.tech/project/structured-pruning-adapters">
     <img src="https://pepy.tech/badge/structured-pruning-adapters" height="20">
   </a> -->
-  <!-- <a href="https://codecov.io/gh/LukasHedegaard/structured-pruning-adapters">
-    <img src="https://codecov.io/gh/LukasHedegaard/structured-pruning-adapters/branch/main/graph/badge.svg?token=????" height="20"/>
-  </a> -->
   <a href="https://opensource.org/licenses/Apache-2.0">
     <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" height="20">
   </a>
-  <!-- <a href="https://arxiv.org/abs/2204.03418">
-    <img src="http://img.shields.io/badge/paper-arxiv.2204.03418-B31B1B.svg" height="20" >
-  </a> -->
+  <a href="https://arxiv.org/abs/2211.10155">
+    <img src="http://img.shields.io/badge/paper-arxiv.2211.10155-B31B1B.svg" height="20" >
+  </a>
   <a href="https://github.com/psf/black">
     <img src="https://img.shields.io/badge/code%20style-black-000000.svg" height="20">
   </a>
-  <!-- <a href="https://www.codefactor.io/repository/github/lukashedegaard/structured-pruning-adapters/overview/main">
-    <img src="https://www.codefactor.io/repository/github/lukashedegaard/structured-pruning-adapters/badge/main" alt="CodeFactor" height="20" />
-  </a> -->
+    <a href="https://codecov.io/github/LukasHedegaard/structured-pruning-adapters" > 
+    <img src="https://codecov.io/github/LukasHedegaard/structured-pruning-adapters/branch/main/graph/badge.svg?token=WHBSM01TRN"/> 
+  </a>
+  <a href="https://www.codefactor.io/repository/github/lukashedegaard/structured-pruning-adapters">
+    <img src="https://www.codefactor.io/repository/github/lukashedegaard/structured-pruning-adapters/badge" alt="CodeFactor" />
+  </a>
 </div>
 
 ```bash
@@ -70,21 +70,25 @@ Use in conjunction with any Structured Pruning technique.
     # Or replace all applicable layers in a network
     spa_net = SPLoRA(reg_net, rank=32)
     ```
-3. Employ any Structured Pruning method, e.g [this](https://github.com/huggingface/block_movement_pruning) or [that](https://github.com/seulkiyeom/LRP_Pruning).
+3. Employ any Structured Pruning method. We conducted extensive experimens with multiple [channel-pruning](https://github.com/lukashedegaard/channel-spa-experiments) and [block-pruning](https://github.com/lukashedegaard/block-spa-experiments) methods.
 
 4. Get pruned SP Adapter weights:
     ```python3
-    # Specify mask
-    spa_lin.configure_parameter_read(
+    # Specify mask - learned via your choice of Structured Pruning method
+    in_features_mask=torch.tensor([1, 0, ..., 1], dtype=torch.bool)
+    out_features_mask=torch.tensor([0, 1, ..., 1], dtype=torch.bool)
+
+    # Read parameters
+    params = sp_adapters.splora.parameters(
         adapter_weights_only=True,
         in_features_mask=torch.tensor([1, 0, ..., 1], dtype=torch.bool)
         out_features_mask=torch.tensor([0, 1, ..., 1], dtype=torch.bool),
-    )   # 👆 masks are learned via your choice of Structured Pruning method
-
-    # Read parameters as usual
-    spa_lin.parameters()
-    spa_lin.named_parameters()
-    spa_lin.state_dict()
+    )   
+    named_parameters = sp_adapters.splora.named_parameters(
+        adapter_weights_only=True,
+        in_features_mask=torch.tensor([1, 0, ..., 1], dtype=torch.bool)
+        out_features_mask=torch.tensor([0, 1, ..., 1], dtype=torch.bool),
+    )
     ```
 
 ### Demo
@@ -101,7 +105,7 @@ Adds a low-rank bottle-neck projection in projection in parallel with the main w
 
 <br/>
 
-### Structured Pruning Low-rank PHM Adapter (SPLoPA) for _Block Pruning_
+### Structured Pruning Low-rank PHM Adapter (SPLoPA) for _Block Pruning_ (experimental)
 ```python3
 from sp_adapters import SPLoPA
 ```
@@ -115,10 +119,10 @@ Uses a variation on the Parameterized Hypercomplex Multiplication (PHM) layer [[
 ## Citation
 If you enjoy this work, please consider citing it
 ```bibtex
-@article{hedegaard2022cotrans,
+@article{hedegaard2022structured,
   title={Structured Pruning Adapters},
-  author={Lukas Hedegaard, Aman Alok, Alexandros Iosifidis},
-  journal={preprint, arXiv:TBD},
+  author={Lukas Hedegaard and Aman Alok and Juby Jose and Alexandros Iosifidis},
+  journal={preprint, arXiv:2211.10155},
   year={2022}
 }
 ```

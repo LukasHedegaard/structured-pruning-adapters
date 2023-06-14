@@ -9,6 +9,13 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 
 ## [Unreleased]
 
+### Changed
+- Moved named_parameters and parameters from class methods to independent functions.
+
+### Added
+- `torch-pruning` pruners for SPLoRA.
+- `SPLoRAMultiheadAttention`.
+
 ## [0.5.2] - 2022-11-6
 ### Changed
 - SPLoRA and SPLoPA behavior to automatically set weight.requires_grad = False instead of assertion

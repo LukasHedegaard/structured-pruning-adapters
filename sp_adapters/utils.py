@@ -27,7 +27,7 @@ def copy_linear_params_(source: nn.Linear, target: nn.Linear, clone=True):
     maybe_clone = torch.clone if clone else lambda x: x
     target.weight = nn.Parameter(maybe_clone(source.weight), requires_grad=False)
     if source.bias is not None:
-        target.bias = nn.Parameter(maybe_clone(source.bias), requires_grad=False)
+        target.bias = nn.Parameter(maybe_clone(source.bias))
 
 
 def recursive_replace(
