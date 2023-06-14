@@ -9,12 +9,16 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 
 ## [Unreleased]
 
+
+## [0.5.2] - 2023-06-14
+
 ### Changed
 - Moved named_parameters and parameters from class methods to independent functions.
 
 ### Added
 - `torch-pruning` pruners for SPLoRA.
 - `SPLoRAMultiheadAttention`.
+
 
 ## [0.5.2] - 2022-11-6
 ### Changed
