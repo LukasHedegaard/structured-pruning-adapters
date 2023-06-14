@@ -74,17 +74,21 @@ Use in conjunction with any Structured Pruning technique.
 
 4. Get pruned SP Adapter weights:
     ```python3
-    # Specify mask
-    spa_lin.configure_parameter_read(
+    # Specify mask - learned via your choice of Structured Pruning method
+    in_features_mask=torch.tensor([1, 0, ..., 1], dtype=torch.bool)
+    out_features_mask=torch.tensor([0, 1, ..., 1], dtype=torch.bool)
+
+    # Read parameters
+    params = sp_adapters.splora.parameters(
         adapter_weights_only=True,
         in_features_mask=torch.tensor([1, 0, ..., 1], dtype=torch.bool)
         out_features_mask=torch.tensor([0, 1, ..., 1], dtype=torch.bool),
-    )   # 👆 masks are learned via your choice of Structured Pruning method
-
-    # Read parameters as usual
-    spa_lin.parameters()
-    spa_lin.named_parameters()
-    spa_lin.state_dict()
+    )   
+    named_parameters = sp_adapters.splora.named_parameters(
+        adapter_weights_only=True,
+        in_features_mask=torch.tensor([1, 0, ..., 1], dtype=torch.bool)
+        out_features_mask=torch.tensor([0, 1, ..., 1], dtype=torch.bool),
+    )
     ```
 
 ### Demo
