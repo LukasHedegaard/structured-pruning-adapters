@@ -373,7 +373,6 @@ class SPLoRAMultiheadAttention(nn.MultiheadAttention):
         device=None,
         dtype=None,
     ):
-
         factory_kwargs = {"device": device, "dtype": dtype}
         nn.Module.__init__(self)
         self.rank = rank
