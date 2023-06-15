@@ -9,15 +9,18 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+ - `SPLoRAMultiheadAttentionPruner` for torch-pruning compatibility
+
 
 ## [0.6.0] - 2023-06-14
 
 ### Changed
-- Moved named_parameters and parameters from class methods to independent functions.
+- Moved named_parameters and parameters from class methods to independent functions
 
 ### Added
-- `torch-pruning` pruners for SPLoRA.
-- `SPLoRAMultiheadAttention`.
+- `torch-pruning` pruners for SPLoRA
+- `SPLoRAMultiheadAttention`
 
 
 ## [0.5.2] - 2022-11-6

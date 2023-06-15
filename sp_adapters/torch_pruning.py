@@ -10,6 +10,7 @@ from .splora import (
     SPLoRAConv2d,
     SPLoRAConv3d,
     SPLoRALinear,
+    SPLoRAMultiheadAttention,
     _SPLoRAConvNd,
 )
 
@@ -55,6 +56,9 @@ class SPLoRALinearPruner(function.BasePruningFunc):
 
     def get_in_channels(self, layer):
         return layer.in_features
+
+
+splora_linear_pruner = SPLoRALinearPruner()
 
 
 class SPLoRAConvPruner(function.BasePruningFunc):
@@ -103,8 +107,83 @@ class SPLoRAConvPruner(function.BasePruningFunc):
         return layer.in_channels
 
 
-splora_linear_pruner = SPLoRALinearPruner()
 splora_conv_pruner = SPLoRAConvPruner()
+
+
+class SPLoRAMultiheadAttentionPruner(function.BasePruningFunc):
+    TARGET_MODULES = nn.MultiheadAttention
+
+    def check(self, layer, idxs, to_output):
+        super().check(layer, idxs, to_output)
+        assert (layer.embed_dim - len(idxs)) % layer.num_heads == 0, (
+            "embed_dim (%d) of MultiheadAttention after pruning must divide evenly by `num_heads` (%d)"
+            % (layer.embed_dim, layer.num_heads)
+        )
+
+    def prune_out_channels(self, layer, idxs: list) -> nn.Module:
+        """
+        Note: The `torch_pruning.pruning.function.MultiheadAttentionPruner`
+        implementation is fundamentally flawed.
+
+        There is no good reason to prune other parameters than `out_proj` besides to
+        satisfy that `embed_dim` is consistent across all its uses.
+        Currently, however, the PyTorch implementation of nn.MultiheadAttention and
+        `F.multi_head_attention_forward` don't let us individually modify the dims of
+        different (valid) uses of `embed_dim`.
+        See https://github.com/pytorch/pytorch/issues/103668
+
+        The pruning that is currently happening can be considered random for all but the
+        `out_proj` output dimensionality. To keep in line with the torch_pruning impl,
+        we'll (reluctantly) use the same strategy here.
+        """
+        keep_idxs = list(set(range(layer.embed_dim)) - set(idxs))
+        keep_idxs.sort()
+        pruning_idxs_repeated = (
+            idxs
+            + [i + layer.embed_dim for i in idxs]
+            + [i + 2 * layer.embed_dim for i in idxs]
+        )
+        keep_idxs_3x_repeated = list(
+            set(range(3 * layer.embed_dim)) - set(pruning_idxs_repeated)
+        )
+
+        layer.q_proj = splora_linear_pruner.prune_out_channels(layer.q_proj, idxs)
+        layer.q_proj = splora_linear_pruner.prune_in_channels(layer.q_proj, idxs)
+
+        layer.k_proj = splora_linear_pruner.prune_out_channels(layer.k_proj, idxs)
+        layer.k_proj = splora_linear_pruner.prune_in_channels(layer.k_proj, idxs)
+
+        layer.v_proj = splora_linear_pruner.prune_out_channels(layer.v_proj, idxs)
+        layer.v_proj = splora_linear_pruner.prune_in_channels(layer.v_proj, idxs)
+
+        if layer.in_proj_bias is not None:
+            layer.in_proj_bias = self._prune_parameter_and_grad(
+                layer.in_proj_bias, keep_idxs_3x_repeated, 0
+            )
+        if layer.bias_k is not None:
+            layer.bias_k = self._prune_parameter_and_grad(layer.bias_k, keep_idxs, 2)
+        if layer.bias_v is not None:
+            layer.bias_v = self._prune_parameter_and_grad(layer.bias_v, keep_idxs, 2)
+
+        layer.out_proj = splora_linear_pruner.prune_out_channels(layer.out_proj, idxs)
+        layer.out_proj = splora_linear_pruner.prune_in_channels(layer.out_proj, idxs)
+
+        layer.embed_dim = layer.embed_dim - len(idxs)
+        layer.head_dim = layer.embed_dim // layer.num_heads
+        layer.kdim = layer.embed_dim
+        layer.vdim = layer.embed_dim
+        return layer
+
+    prune_in_channels = prune_out_channels
+
+    def get_out_channels(self, layer):
+        return layer.embed_dim
+
+    def get_in_channels(self, layer):
+        return self.get_out_channels(layer)
+
+
+splora_mha_pruner = SPLoRAMultiheadAttentionPruner()
 
 # Pass this dict to the "customized_pruners" argument of pruners in the Torch Pruning lib
 customized_pruners = {
@@ -113,6 +192,7 @@ customized_pruners = {
     SPLoRAConv1d: splora_conv_pruner,
     SPLoRAConv2d: splora_conv_pruner,
     SPLoRAConv3d: splora_conv_pruner,
+    SPLoRAMultiheadAttention: splora_mha_pruner,
 }
 
 # Pass this dict to the "root_module_types" argument of pruners in the Torch Pruning lib
@@ -125,6 +205,7 @@ root_module_types = [
     SPLoRAConv1d,
     SPLoRAConv2d,
     SPLoRAConv3d,
+    SPLoRAMultiheadAttention,
 ]
 
 
