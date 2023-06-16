@@ -111,7 +111,7 @@ splora_conv_pruner = SPLoRAConvPruner()
 
 
 class SPLoRAMultiheadAttentionPruner(function.BasePruningFunc):
-    TARGET_MODULES = nn.MultiheadAttention
+    TARGET_MODULES = SPLoRAMultiheadAttention
 
     def check(self, layer, idxs, to_output):
         super().check(layer, idxs, to_output)
@@ -120,7 +120,9 @@ class SPLoRAMultiheadAttentionPruner(function.BasePruningFunc):
             % (layer.embed_dim, layer.num_heads)
         )
 
-    def prune_out_channels(self, layer, idxs: list) -> nn.Module:
+    def prune_out_channels(
+        self, layer: SPLoRAMultiheadAttention, idxs: Sequence[int]
+    ) -> nn.Module:
         """
         Note: The `torch_pruning.pruning.function.MultiheadAttentionPruner`
         implementation is fundamentally flawed.
@@ -146,6 +148,7 @@ class SPLoRAMultiheadAttentionPruner(function.BasePruningFunc):
         keep_idxs_3x_repeated = list(
             set(range(3 * layer.embed_dim)) - set(pruning_idxs_repeated)
         )
+        keep_idxs_3x_repeated.sort()
 
         layer.q_proj = splora_linear_pruner.prune_out_channels(layer.q_proj, idxs)
         layer.q_proj = splora_linear_pruner.prune_in_channels(layer.q_proj, idxs)
@@ -174,13 +177,11 @@ class SPLoRAMultiheadAttentionPruner(function.BasePruningFunc):
         layer.vdim = layer.embed_dim
         return layer
 
-    prune_in_channels = prune_out_channels
-
-    def get_out_channels(self, layer):
+    def get_out_channels(self, layer: SPLoRAMultiheadAttention):
         return layer.embed_dim
 
-    def get_in_channels(self, layer):
-        return self.get_out_channels(layer)
+    prune_in_channels = prune_out_channels
+    get_in_channels = get_out_channels
 
 
 splora_mha_pruner = SPLoRAMultiheadAttentionPruner()

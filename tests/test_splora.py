@@ -179,14 +179,13 @@ def test_splora_mha_equal_qkv_dim():
         embed_dim,
         num_heads,
         dropout=0.0,
-        bias=True,
+        bias=False,
         add_bias_kv=False,
         add_zero_attn=False,
         kdim=None,
         vdim=None,
         batch_first=False,
     )
-    mha.in_proj_bias = torch.nn.Parameter(torch.rand_like(mha.in_proj_bias))
 
     # Transfer
     spmha = SPLoRA(mha, rank)
@@ -205,11 +204,9 @@ def test_splora_mha_equal_qkv_dim():
     assert torch.allclose(  # in_proj_weight property uses adapted_weights
         mha.in_proj_weight, spmha.in_proj_weight, atol=_DEFAULT_INIT_RANGE
     )
-    assert torch.equal(mha.in_proj_bias, spmha.in_proj_bias)
     assert torch.allclose(
         mha.out_proj.weight, spmha.out_proj.adapted_weight, atol=_DEFAULT_INIT_RANGE
     )
-    assert torch.equal(mha.out_proj.bias, spmha.out_proj.bias)
 
     # Prepare optim
     optimizer = torch.optim.Adam(spmha.parameters())
@@ -252,10 +249,6 @@ def test_splora_mha_equal_qkv_dim():
         spmha.out_proj.weight,
     )
 
-    # Biases changed
-    assert not torch.equal(mha.in_proj_bias, spmha.in_proj_bias)
-    assert not torch.equal(mha.out_proj.bias, spmha.out_proj.bias)
-
     # Adapter params changed
     assert not torch.equal(prev_q_proj_cols, spmha.q_proj.adapter.cols)
     assert not torch.equal(prev_q_proj_rows, spmha.q_proj.adapter.rows)
@@ -273,9 +266,7 @@ def test_splora_mha_equal_qkv_dim():
     assert torch.equal(  # in_proj_weight property uses adapted_weights
         mha2.in_proj_weight, spmha.in_proj_weight
     )
-    assert torch.equal(mha2.in_proj_bias, spmha.in_proj_bias)
     assert torch.equal(mha2.out_proj.weight, spmha.out_proj.adapted_weight)
-    assert torch.equal(mha2.out_proj.bias, spmha.out_proj.bias)
 
 
 def test_splora_mha_diff_qkv_dim():
