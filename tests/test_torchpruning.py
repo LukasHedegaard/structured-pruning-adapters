@@ -310,6 +310,55 @@ def test_SPLoRAConv_pruning():
     assert model(torch.randn(1, d_in, seq_len)).shape == (1, num_classes, 1)
 
 
+def test_SPLoRAMultiheadAttention_pruning():
+    class MhaNet(nn.Module):
+        def __init__(self, input_size, num_classes, hidden_units):
+            super().__init__()
+            self.fc1 = nn.Linear(input_size, hidden_units)
+            # self.mha = nn.MultiheadAttention(hidden_units, num_heads=4)
+            self.mha = spa.SPLoRAMultiheadAttention(hidden_units, num_heads=4, rank=2)
+            self.fc2 = nn.Linear(hidden_units, num_classes)
+
+        def forward(self, x):
+            x = F.relu(self.fc1(x))
+            x, _ = self.mha(x, x, x)
+            y_hat = self.fc2(x)
+            return y_hat
+
+    num_classes = 3
+    d_in = 8
+    d_hidden = 16
+    seq_len = 10
+    model = MhaNet(d_in, num_classes, d_hidden)
+    example_input = torch.randn(seq_len, d_in)
+
+    DG = tp.DependencyGraph()
+
+    DG.build_dependency(
+        model,
+        example_inputs=example_input,
+        customized_pruners=spa.torch_pruning.customized_pruners,
+    )
+    # Get a pruning group according to the dependency graph.
+    # idxs is the indices of pruned filters.
+    # Prune out channels
+    prune_idxs = [0, 1, 3, 6]
+    pruning_group = DG.get_pruning_group(
+        model.fc1, tp.prune_linear_out_channels, idxs=prune_idxs
+    )
+    print(pruning_group)
+
+    # Execute this group (prune the model)
+    pruning_group.prune()
+
+    # Check shapes
+    embed_dim = d_hidden - len(prune_idxs)
+    assert model.mha.q_proj.adapted_weight.shape == (embed_dim, embed_dim)
+    assert model.mha.k_proj.adapted_weight.shape == (embed_dim, embed_dim)
+    assert model.mha.v_proj.adapted_weight.shape == (embed_dim, embed_dim)
+    assert model.mha.out_proj.adapted_weight.shape == (embed_dim, embed_dim)
+
+
 if __name__ == "__main__":
     # test_SPLoRALinear_pruning()
     test_SPLoRALinear_magpruner()

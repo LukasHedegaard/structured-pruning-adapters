@@ -10,6 +10,12 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 ## [Unreleased]
 
 
+## [0.6.2] - 2023-06-16
+
+### Fixed
+- `SPLoRAMultiheadAttentionPruner` usage by circumventing concat in SPLoRAMultiheadAttention impl (weird issue...)
+
+
 ## [0.6.1] - 2023-06-15
 
 ### Added
