@@ -9,6 +9,9 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+- Low-memory `SPLoRALinear` forward.
+
 
 ## [0.6.2] - 2023-06-16
 
