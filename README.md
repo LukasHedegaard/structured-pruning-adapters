@@ -105,6 +105,14 @@ Adds a low-rank bottle-neck projection in projection in parallel with the main w
 
 <br/>
 
+### Structured Pruning Parllel Residual Adapter (SPPaRA) for _Channel Pruning_ of CNNs
+```python3
+from sp_adapters import SPPaRA
+```
+Adds a pointwise convolution as adapter to convolutional layers. First proposed in ["Efficient parametrization of multi-domain deep neural networks" by Rebuffi et al.](https://arxiv.org/pdf/1803.10082.pdf),
+
+<br/>
+
 ### Structured Pruning Low-rank PHM Adapter (SPLoPA) for _Block Pruning_ (experimental)
 ```python3
 from sp_adapters import SPLoPA
