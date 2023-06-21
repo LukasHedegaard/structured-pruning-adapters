@@ -10,6 +10,13 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 ## [Unreleased]
 
 
+## [0.7.0] - 2023-06-21
+
+### Added
+- Low-memory `SPLoRALinear` forward.
+- Structured Pruning Parallel Residual Adapter (SPPaRA)
+
+
 ## [0.6.2] - 2023-06-16
 
 ### Fixed

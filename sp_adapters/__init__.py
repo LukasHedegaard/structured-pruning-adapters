@@ -9,6 +9,7 @@ from .splora import (
     SPLoRALinear,
     SPLoRAMultiheadAttention,
 )
+from .sppara import SPPaRA, SPPaRAConv1d, SPPaRAConv2d, SPPaRAConv3d
 
 __all__ = [
     "SPLoPA",
@@ -19,6 +20,10 @@ __all__ = [
     "SPLoRAConv2d",
     "SPLoRAConv3d",
     "SPLoRAMultiheadAttention",
+    "SPPaRA",
+    "SPPaRAConv1d",
+    "SPPaRAConv2d",
+    "SPPaRAConv3d",
     "LowRankMatrix",
     "torch_pruning",
 ]

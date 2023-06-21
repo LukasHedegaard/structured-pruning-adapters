@@ -48,6 +48,21 @@ class SPLoRALinear(nn.Linear):
         self.reset_parameters()
 
     def forward(self, input):
+        if self.training:
+            # Low memory impl - gradient size significantly smaller
+            if self.weight.requires_grad:
+                self.weight.requires_grad = False
+                logger.warning("Forcing `weight.requires_grad = False`")
+            return nn.functional.linear(
+                input, self.weight, self.bias
+            ) + nn.functional.linear(
+                nn.functional.linear(
+                    input,
+                    self.adapter.rows.squeeze(0),
+                ),
+                self.adapter.cols.squeeze(0),
+            )
+        # Low FLOPs impl
         return nn.functional.linear(input, self.adapted_weight, self.bias)
 
     @property
