@@ -105,6 +105,7 @@ class _SPLoRAConvNd:
         in_channels: int,
         out_channels: int,
         bias: bool = True,
+        groups: int = 1,
         # rank (int) or fraction of output_channels
         rank: Union[int, float] = _DEFAULT_RANK,
         init_range: float = _DEFAULT_INIT_RANGE,
@@ -114,7 +115,7 @@ class _SPLoRAConvNd:
         self._nd = int(ConvCls.__name__[-2])
         self._ConvCls = ConvCls
         self.adapter = LowRankMatrix(
-            1, in_channels, out_channels, rank, init_range=init_range
+            1, in_channels // groups, out_channels, rank, init_range=init_range
         )
 
     def forward(self, input: Tensor) -> Tensor:
@@ -192,6 +193,7 @@ class SPLoRAConv1d(_SPLoRAConvNd, nn.Conv1d):
             in_channels,
             out_channels,
             bias,
+            groups,
             rank,
             init_range,
             device,
@@ -265,6 +267,7 @@ class SPLoRAConv2d(_SPLoRAConvNd, nn.Conv2d):
             in_channels,
             out_channels,
             bias,
+            groups,
             rank,
             init_range,
             device,
@@ -338,6 +341,7 @@ class SPLoRAConv3d(_SPLoRAConvNd, nn.Conv3d):
             in_channels,
             out_channels,
             bias,
+            groups,
             rank,
             init_range,
             device,

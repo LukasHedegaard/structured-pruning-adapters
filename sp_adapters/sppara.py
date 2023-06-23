@@ -21,16 +21,17 @@ class _SPPaRAConvNd:
         ConvCls: Union[nn.Conv1d, nn.Conv2d, nn.Conv3d],
         in_channels: int,
         out_channels: int,
-        bias: bool = True,
-        # rank (int) or fraction of output_channels
+        groups: int = 1,
         init_range: float = _DEFAULT_INIT_RANGE,
         device=None,
         dtype=None,
+        *args,
+        **kwargs,
     ):
         self._nd = int(ConvCls.__name__[-2])
         self._ConvCls = ConvCls
         self.adapter = nn.Parameter(
-            torch.empty((in_channels, out_channels), device=device, dtype=dtype)
+            torch.empty(out_channels, in_channels // groups, device=device, dtype=dtype)
         )
         nn.init.uniform_(self.adapter, -init_range, init_range)
 
@@ -46,7 +47,7 @@ class _SPPaRAConvNd:
         center_inds = [kdx for _ in range(self._nd)]
         # w_diag[:, :, *center_inds] += self.adapter # Python 3.11+
         wdx = [slice(None), slice(None)] + center_inds
-        w_diag.__setitem__(wdx, w_diag.__getitem__(wdx) + self.adapter.T)
+        w_diag.__setitem__(wdx, w_diag.__getitem__(wdx) + self.adapter)
         return self.weight + w_diag
 
     def to_module(self) -> torch.nn.modules.conv._ConvNd:
@@ -108,7 +109,7 @@ class SPPaRAConv1d(_SPPaRAConvNd, nn.Conv1d):
             nn.Conv1d,
             in_channels,
             out_channels,
-            bias,
+            groups,
             init_range,
             device,
             dtype,
@@ -177,7 +178,7 @@ class SPPaRAConv2d(_SPPaRAConvNd, nn.Conv2d):
             nn.Conv2d,
             in_channels,
             out_channels,
-            bias,
+            groups,
             init_range,
             device,
             dtype,
@@ -246,7 +247,7 @@ class SPPaRAConv3d(_SPPaRAConvNd, nn.Conv3d):
             nn.Conv3d,
             in_channels,
             out_channels,
-            bias,
+            groups,
             init_range,
             device,
             dtype,
@@ -313,9 +314,9 @@ def named_parameters(
     ):
         if name == "adapter":
             if in_features_mask is not None:
-                param = param[in_features_mask]
+                param = param[:, in_features_mask]
             if out_features_mask is not None:
-                param = param[:, out_features_mask]
+                param = param[out_features_mask]
         elif name == "bias" and out_features_mask is not None:
             param = param[out_features_mask]
         elif name == "weight" and not adapter_weights_only:
