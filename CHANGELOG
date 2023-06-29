@@ -9,6 +9,11 @@ From v1.0.0 and on, the project will adherence strictly to Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.7.1] - 2023-06-23
+
+### Fixed
+- Grouped convolutions
+
 
 ## [0.7.0] - 2023-06-21
 

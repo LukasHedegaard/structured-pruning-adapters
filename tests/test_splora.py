@@ -167,6 +167,90 @@ def test_splora_conv():
             assert torch.equal(conv2.bias, spconv.bias)
 
 
+def test_splora_conv_grouped():
+    batch_size = 2
+    rank = 2
+    in_channels = 10
+    groups = 2
+    out_channels = 4
+    kernel_size = 3
+    A = 9
+
+    for ConvNd in [nn.Conv1d, nn.Conv2d, nn.Conv3d]:
+        D = int(ConvNd.__name__[-2])
+        x_shape = [batch_size, in_channels] + [A for _ in range(D)]
+        y_shape = [batch_size, out_channels] + [A - 2 for _ in range(D)]
+        x = torch.randn(x_shape)
+        y = torch.randn(y_shape)
+        bias = D == 2
+
+        conv = ConvNd(
+            in_channels, out_channels, kernel_size=kernel_size, bias=bias, groups=groups
+        )
+        spconv = SPLoRA(conv, rank)
+        assert torch.equal(conv.weight, spconv.weight)
+        if bias:
+            assert torch.equal(conv.bias, spconv.bias)
+
+        # Prepare optim
+        optimizer = torch.optim.Adam(spconv.parameters())
+        optimizer.zero_grad()
+
+        # Save for later comparison
+        prev_adapter_cols = torch.clone(spconv.adapter.cols)
+        prev_adapter_rows = torch.clone(spconv.adapter.rows)
+
+        # Forwards are approx equal since adapters were initialized with near-zero values
+        conv_out = conv.forward(x)
+        spconv_out = spconv.forward(x)
+        assert torch.allclose(conv_out, spconv_out, atol=1e-3)
+
+        # Train a bit
+        mse = nn.MSELoss()
+        loss = mse(spconv_out, y)
+        loss.backward()
+        optimizer.step()
+
+        # Linear params remain unchanged
+        assert torch.equal(conv.weight, spconv.weight)
+
+        # Adapter params changed!
+        if bias:
+            assert not torch.equal(conv.bias, spconv.bias)
+        assert not torch.equal(spconv.adapter.cols, prev_adapter_cols)
+        assert not torch.equal(spconv.adapter.rows, prev_adapter_rows)
+
+        # Count params
+        # tot_params = sum([torch.Tensor([p.shape]).prod() for p in spconv.parameters()])
+
+        # Count masked params
+        in_features_mask = torch.tensor([1, 0, 1, 1, 0], dtype=torch.bool)
+        out_features_mask = torch.tensor([1, 0, 1, 0], dtype=torch.bool)
+
+        tot_masked_params = sum(
+            [
+                torch.Tensor([p.shape]).prod()
+                for p in parameters(
+                    spconv,
+                    adapter_weights_only=True,
+                    in_features_mask=in_features_mask,
+                    out_features_mask=out_features_mask,
+                )
+            ]
+        )
+
+        if bias:
+            assert tot_masked_params == 3 * rank + 2 * rank + 2
+        else:
+            assert tot_masked_params == 3 * rank + 2 * rank
+
+        # Export to conv
+        conv2 = spconv.to_module()
+        assert torch.equal(conv2.weight, spconv.adapted_weight)
+        if bias:
+            assert torch.equal(conv2.bias, spconv.bias)
+
+
 def test_splora_mha_equal_qkv_dim():
     rank = 2
     embed_dim = 16
