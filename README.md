@@ -1,32 +1,11 @@
 # Structured Pruning Adapters for PyTorch
 
 <div align="left">
-  <a href="https://pypi.org/project/structured-pruning-adapters/">
-    <img src="https://img.shields.io/pypi/pyversions/structured-pruning-adapters" height="20" >
-  </a>
-  <a href="https://badge.fury.io/py/structured-pruning-adapters">
-    <img src="https://badge.fury.io/py/structured-pruning-adapters.svg" height="20" >
-  </a>
-  <!-- <a href="https://structured-pruning-adapters.readthedocs.io/en/latest/?badge=latest">
-    <img src="https://readthedocs.org/projects/structured-pruning-adapters/badge/?version=latest" alt="Documentation Status" height="20"/>
-  </a> -->
-  <!-- <a href="https://pepy.tech/project/structured-pruning-adapters">
-    <img src="https://pepy.tech/badge/structured-pruning-adapters" height="20">
-  </a> -->
   <a href="https://opensource.org/licenses/Apache-2.0">
     <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" height="20">
   </a>
-  <a href="https://arxiv.org/abs/2211.10155">
-    <img src="http://img.shields.io/badge/paper-arxiv.2211.10155-B31B1B.svg" height="20" >
-  </a>
   <a href="https://github.com/psf/black">
     <img src="https://img.shields.io/badge/code%20style-black-000000.svg" height="20">
-  </a>
-    <a href="https://codecov.io/github/LukasHedegaard/structured-pruning-adapters" > 
-    <img src="https://codecov.io/github/LukasHedegaard/structured-pruning-adapters/branch/main/graph/badge.svg?token=WHBSM01TRN"/> 
-  </a>
-  <a href="https://www.codefactor.io/repository/github/lukashedegaard/structured-pruning-adapters">
-    <img src="https://www.codefactor.io/repository/github/lukashedegaard/structured-pruning-adapters/badge" alt="CodeFactor" />
   </a>
 </div>
 
@@ -48,16 +27,17 @@ When a single base-model is deployed with many specialised models, these structu
 =
 <!-- | |
 | --- | -->
-[__Structured Pruning Adapters__](https://github.com/LukasHedegaard/structured-pruning-adapters) are the offspring of Structured Pruning and Fusible Adapters, and can be used for _Transfer Learning_ which has:
+__Structured Pruning Adapters__ are the offspring of Structured Pruning and Fusible Adapters, and can be used for _Transfer Learning_ which has:
 - ✅ Extremely few learned parameters (binary pruning mask + masked adapter weights) 👌
 - ✅ Accelerated network inference 🏎💨
 
 
 ## How to use this library
 Use in conjunction with any Structured Pruning technique. 
+0. Navigate to the repository root.
 1. Install the library:
     ```bash
-    pip install structured-pruning-adapters
+    pip install -e .
     ```
 2. Replace Linear and Conv layers with an SP Adapter:
     ```python3
@@ -70,7 +50,7 @@ Use in conjunction with any Structured Pruning technique.
     # Or replace all applicable layers in a network
     spa_net = SPLoRA(reg_net, rank=32)
     ```
-3. Employ any Structured Pruning method. We conducted extensive experimens with multiple [channel-pruning](https://github.com/lukashedegaard/channel-spa-experiments) and [block-pruning](https://github.com/lukashedegaard/block-spa-experiments) methods.
+3. Employ any Structured Pruning method. We conducted extensive experimens with multiple _channel-pruning_  methods (please see the `experiments` repository).
 
 4. Get pruned SP Adapter weights:
     ```python3
@@ -105,7 +85,7 @@ Adds a low-rank bottle-neck projection in projection in parallel with the main w
 
 <br/>
 
-### Structured Pruning Parllel Residual Adapter (SPPaRA) for _Channel Pruning_ of CNNs
+### Structured Pruning Parallel Residual Adapter (SPPaRA) for _Channel Pruning_ of CNNs
 ```python3
 from sp_adapters import SPPaRA
 ```
@@ -124,19 +104,5 @@ from sp_adapters import SPLoPA
 
 Uses a variation on the Parameterized Hypercomplex Multiplication (PHM) layer [[paper](https://openreview.net/forum?id=rcQdycl0zyk)] with shared low-rank prototypes for block-sparse adaptation.
 
-## Citation
-If you enjoy this work, please consider citing it
-```bibtex
-@article{hedegaard2022structured,
-  title={Structured Pruning Adapters},
-  author={Lukas Hedegaard and Aman Alok and Juby Jose and Alexandros Iosifidis},
-  journal={preprint, arXiv:2211.10155},
-  year={2022}
-}
-```
 
-## Acknowledgement
-This work was done in conjunction with a research exchange at [Cactus Communications 🌵](https://cactusglobal.com).
-
-This work has received funding from the European Union’s Horizon 2020 research and innovation programme under grant agreement No 871449 [(OpenDR) 🇪🇺](https://opendr.eu).
 
